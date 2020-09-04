@@ -1,0 +1,11 @@
+manifest:
+  self:
+    path: greybus
+  remotes:
+    - name: zephyrproject-rtos
+      url-base: https://github.com/zephyrproject-rtos
+  projects:
+    - name: zephyr
+      remote: zephyrproject-rtos
+      revision: master
+      import: true

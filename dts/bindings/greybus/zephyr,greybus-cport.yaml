@@ -1,0 +1,21 @@
+# Copyright (c) 2020, Friedt Professional Engineering Services, Inc
+# SPDX-License-Identifier: Apache-2.0
+
+# Common fields for Greybus Controllers
+
+description: Greybus CPort Descriptor
+
+# should not be directly instantiated
+# compatible: "zephyr,greybus-cport"
+
+include: [base.yaml]
+
+properties:
+    "id":
+      type: int
+      required: true
+      description: Bundle ID
+    "cport-protocol":
+      type: int
+      required: true
+      description: Conveys the CPortProtocol that is used on this CPort  

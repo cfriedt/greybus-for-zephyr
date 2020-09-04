@@ -1,0 +1,151 @@
+/*
+ * Copyright (c) 2020 Friedt Professional Engineering Services, Inc
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <dt-bindings/greybus/greybus.h>
+#include <dt-bindings/greybus/spi.h>
+
+/ {
+	resources {
+		compatible = "test,greybus-i2c";
+		test-i2c = <&i2c0>; 
+	};
+
+	greybus0: greybus0 {
+		compatible = "zephyr,greybus";
+		label = "GREYBUS_0";
+		greybus;
+	};
+};
+
+&gpio0 {
+	status = "okay";
+	ngpios = <2>;
+};
+
+&spi0 {
+	status = "okay";
+
+	cs-gpios = <&gpio0 0 GPIO_ACTIVE_LOW>;
+
+	test_spi_at25: at25@0 {
+                status = "okay";
+        compatible = "atmel,at25";
+        label = "EEPROM_1";
+        reg = <0x0>;
+        spi-max-frequency = <0>;
+        size = <65536>;
+        pagesize = <256>;
+        address-width = <24>;
+        timeout = <5>;
+        /* wp-gpios = <&test_gpio 0 0>; */
+        /* read-only; */
+	};
+};
+
+&greybus0 {
+	status = "okay";
+	/* defaults in effect, so this isn't necessary */
+	version-major = <GREYBUS_VERSION_MAJOR>;
+	version-minor = <GREYBUS_VERSION_MINOR>;
+
+	gbstring0: gbstring0 {
+		status = "okay";
+		compatible = "zephyr,greybus-string";
+		id = <0>;
+		greybus-string = "Zephyr Project RTOS";
+	};
+
+	gbstring1: gbstring1 {
+		status = "okay";
+		compatible = "zephyr,greybus-string";
+		id = <1>;
+		greybus-string = "Greybus Service Sample Application";
+	};
+
+	gbinterface0 {
+		status = "okay";
+		compatible = "zephyr,greybus-interface";
+		vendor-string-id = <&gbstring0>;
+		product-string-id = <&gbstring1>;
+		greybus-interface;
+	};
+
+	gbbundle0 {
+		status = "okay";
+		compatible = "zephyr,greybus-bundle";
+		greybus-bundle;
+		/* Control Bundle 0
+		 * Note: control bundle 0 and control cport 0 are optional
+		 * Since instance numbers automatically begin at 0, the id
+		 * is a mandatory field for bundles and cports.
+		 */
+		id = <CONTROL_BUNDLE_ID>;
+		bundle-class = <BUNDLE_CLASS_CONTROL>;
+
+		gbcontrol0 {
+			status = "okay";
+			compatible = "zephyr,greybus-control";
+			greybus-controller;
+			/* Control CPort 0
+			 * Note: control bundle 0 and control cport 0 are optional
+			 * Since instance numbers automatically begin at 0, the id
+			 * is a mandatory field for bundles and cports.
+			 */
+			id = <CONTROL_CPORT_ID>;
+			cport-protocol = <CPORT_PROTOCOL_CONTROL>; 
+		};
+	};
+	
+	gbbundle1 {
+		status = "okay";
+		compatible = "zephyr,greybus-bundle";
+		greybus-bundle;
+		id = <1>;
+		bundle-class = <BUNDLE_CLASS_BRIDGED_PHY>;		
+				
+		gbspi0 {
+			status = "okay";
+			compatible = "zephyr,greybus-spi-controller";
+			greybus-spi-controller = <&spi0>;
+			id = <1>;
+			cport-protocol = <CPORT_PROTOCOL_SPI>;
+
+			/*
+			 * Entries for struct gb_spi_master_config_response
+			 */
+			bpw-mask = <0xff>;
+			min-speed-hz = <100000>;
+			max-speed-hz = <400000>;			
+			/* FIXME: there must be a better way to do this */
+			#define _mode (GB_SPI_MODE_CPHA|GB_SPI_MODE_3WIRE|GB_SPI_MODE_READY)
+			mode = <_mode>;
+			flags = <GB_SPI_FLAG_HALF_DUPLEX>;
+
+			eeprom {
+				status = "okay";
+				compatible = "zephyr,greybus-spi-peripheral";
+				/* cs is used as an array index for compile-time definition [cs] = {...}, */				
+				cs = <0>;
+				
+				/*
+				 * Entries for struct gb_spi_device_config_response
+				 */
+				mode = <GB_SPI_MODE_CPHA>;
+				bpw = <24>;
+				max-speed-hz = <400000>;
+				device-type = <GB_SPI_SPI_MODALIAS>;
+				device-name = "spi:at25";
+				
+				/*
+				 * TODO: nest the equivalent of a struct spi_cs_control
+				 * here with a phandle to e.g. gpio0.
+				 * Needs some machinery in subsys/greybus/platform/spi.c
+				 * and (probably also) subsys/greybus/spi.c 
+				 */
+			};
+		};
+	};
+};

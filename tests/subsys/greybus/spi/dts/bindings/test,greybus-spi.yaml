@@ -1,0 +1,18 @@
+#
+# Copyright (c) 2020 Friedt Professional Engineering Services, Inc
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+description: |
+    This binding provides resources required to build and run the
+    spi-related tests under tests/subsys/greybus test in Zephyr.
+
+compatible: "test,greybus-spi"
+
+properties:
+    test-spi:
+        type: phandle
+        required: true
+        description: |
+          Identity of an SPI device that will be used with Greybus.

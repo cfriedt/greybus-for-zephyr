@@ -1,0 +1,18 @@
+#
+# Copyright (c) 2020 Friedt Professional Engineering Services, Inc
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+description: |
+    This binding provides resources required to build and run the
+    i2c-related tests under tests/subsys/greybus test in Zephyr.
+
+compatible: "test,greybus-i2c"
+
+properties:
+    test-i2c:
+        type: phandle
+        required: true
+        description: |
+          Identity of an I2C device that will be used with Greybus.

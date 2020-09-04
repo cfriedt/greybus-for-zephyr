@@ -1,0 +1,24 @@
+# Copyright (c) 2020, Friedt Professional Engineering Services, Inc
+# SPDX-License-Identifier: Apache-2.0
+
+# Common fields for GPIO controllers
+
+description: Greybus Interface
+
+compatible: "zephyr,greybus-interface"
+
+include: [base.yaml]
+
+properties:
+    "greybus-interface":
+      type: boolean
+      required: true
+      description: DeviceTree representation of a Greybus manifest string descriptor
+    "vendor-string-id":
+      type: phandle
+      required: true
+      description: "Reference to greybus-string describing the vendor"
+    "product-string-id":
+      type: phandle
+      required: true
+      description: "Reference to greybus-string describing the product"

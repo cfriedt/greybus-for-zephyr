@@ -1,0 +1,22 @@
+# Copyright (c) 2020, Friedt Professional Engineering Services, Inc
+# SPDX-License-Identifier: Apache-2.0
+
+# Common fields for Greybus GPIO Controllers
+
+description: Greybus GPIO Controller
+
+compatible: "zephyr,greybus-gpio-controller"
+
+include: ["zephyr,greybus-cport.yaml"]
+
+properties:
+    "greybus-gpio-controller":
+      type: phandle
+      required: true
+      description: Conveys which GPIO port is associated with this Greybus GPIO Controller instance
+    "cport-protocol":
+      type: int
+      # GPIO protocol
+      default: 0x02
+      const: 0x02
+      description: The GPIO CPort protocol

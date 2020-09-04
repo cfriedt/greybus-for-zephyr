@@ -1,0 +1,38 @@
+# Copyright (c) 2020, Friedt Professional Engineering Services, Inc
+# SPDX-License-Identifier: Apache-2.0
+
+# Common fields for GPIO controllers
+
+description: Greybus
+
+compatible: "zephyr,greybus"
+
+include: [base.yaml]
+
+properties:
+    "greybus":
+      type: boolean
+      required: true
+      description: Foo
+    "version-major":
+      type: int
+      required: true
+      # GREYBUS_VERSION_MAJOR
+      default: 0
+      description: Greybus Protocol Major Version 
+    "version-minor":
+      type: int
+      required: true
+      # GREYBUS_VERSION_MINOR
+      default: 1
+      description: Greybus Protocol Minor Version 
+    "#address-cells":
+      type: int
+      required: false
+      default: 1
+      const: 1
+    "#size-cells":
+      type: int
+      required: false
+      default: 0
+      const: 0

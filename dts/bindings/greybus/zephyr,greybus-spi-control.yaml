@@ -1,0 +1,50 @@
+# Copyright (c) 2020, Friedt Professional Engineering Services, Inc
+# SPDX-License-Identifier: Apache-2.0
+
+# Common fields for Greybus SPI Controllers
+
+description: Greybus SPI Controller
+
+compatible: "zephyr,greybus-spi-controller"
+
+# Common fields for Greybus SPI Controllers
+# used to build a "struct gb_spi_master_config_response".
+# Children of this node are used to build a table of
+# "struct gb_spi_device_config_response".
+
+include: ["zephyr,greybus-cport.yaml"]
+
+properties:
+    "greybus-spi-controller":
+      type: phandle
+      required: true
+      description: Conveys which SPI port is associated with this Greybus SPI Controller instance
+    "cport-protocol":
+      type: int
+      # SPI protocol
+      default: 0x0b
+      const: 0x0b
+      description: The SPI CPort protocol
+    "bpw-mask":
+      type: int
+      required: true
+      description: The number of bits per SPI word transferred
+    "min-speed-hz":
+      type: int
+      required: true
+      description: The minimum bus speed supported by the SPI controller
+    "max-speed-hz":
+      type: int
+      required: true
+      description: The maximum bus speed supported by the SPI controller
+    "mode":
+      # see GB_SPI_MODE_* defined in dt-bindings/greybus/spi.h
+      type: int
+      required: true
+      description: Greybus SPI mode bits
+    "flags":
+      # see GB_SPI_FLAG_* defined in dt-bindings/greybus/spi.h
+      type: int
+      required: true
+      description: Greybus SPI flag bits
+

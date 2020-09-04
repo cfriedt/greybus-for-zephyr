@@ -1,0 +1,1168 @@
+diff --git a/boards/posix/native_posix/native_posix.dts b/boards/posix/native_posix/native_posix.dts
+index 5c828fb483d7..a6ea0110f195 100644
+--- a/boards/posix/native_posix/native_posix.dts
++++ b/boards/posix/native_posix/native_posix.dts
+@@ -7,6 +7,7 @@
+ /dts-v1/;
+ #include <posix/posix.dtsi>
+ #include <dt-bindings/i2c/i2c.h>
++#include <dt-bindings/gpio/gpio.h>
+ 
+ / {
+ 	model = "Native POSIX Board";
+@@ -26,6 +27,15 @@
+ 		eeprom-0 = &eeprom0;
+ 		i2c-0 = &i2c0;
+ 		spi-0 = &spi0;
++		led0 = &led0;
++	};
++
++	leds {
++		compatible = "gpio-leds";
++		led0: led_0 {
++			gpios = <&gpio0 0 GPIO_ACTIVE_HIGH>;
++			label = "Green LED";
++		};
+ 	};
+ 
+ 	flashcontroller0: flash-controller@0 {
+@@ -130,4 +140,18 @@
+ 		label = "EC_HOST_CMD_SIM";
+ 	};
+ 
++	gpio0: gpio@800 {
++		status = "okay";
++		compatible = "zephyr,gpio-emul";
++		reg = <0x800 0x4>;
++		label = "GPIO_0";
++		rising-edge;
++		falling-edge;
++		dual-edge;
++		high-level;
++		low-level;
++		dual-level;
++		gpio-controller;
++		#gpio-cells = <2>;
++	};
+ };
+diff --git a/drivers/gpio/CMakeLists.txt b/drivers/gpio/CMakeLists.txt
+index ff30e5451153..81b36349568c 100644
+--- a/drivers/gpio/CMakeLists.txt
++++ b/drivers/gpio/CMakeLists.txt
+@@ -31,6 +31,7 @@ zephyr_library_sources_ifdef(CONFIG_GPIO_LITEX      gpio_litex.c)
+ zephyr_library_sources_ifdef(CONFIG_GPIO_LPC11U6X   gpio_lpc11u6x.c)
+ zephyr_library_sources_ifdef(CONFIG_GPIO_XLNX_AXI   gpio_xlnx_axi.c)
+ zephyr_library_sources_ifdef(CONFIG_GPIO_NPCX       gpio_npcx.c)
++zephyr_library_sources_ifdef(CONFIG_GPIO_EMUL       gpio_emul.c)
+ 
+ zephyr_library_sources_ifdef(CONFIG_GPIO_SHELL      gpio_shell.c)
+ 
+diff --git a/drivers/gpio/Kconfig b/drivers/gpio/Kconfig
+index 81d86851b3bf..8c5c6dd4c8ba 100644
+--- a/drivers/gpio/Kconfig
++++ b/drivers/gpio/Kconfig
+@@ -79,4 +79,6 @@ source "drivers/gpio/Kconfig.xlnx"
+ 
+ source "drivers/gpio/Kconfig.npcx"
+ 
++source "drivers/gpio/Kconfig.emul"
++
+ endif # GPIO
+diff --git a/drivers/gpio/Kconfig.emul b/drivers/gpio/Kconfig.emul
+new file mode 100644
+index 000000000000..3b596c251d64
+--- /dev/null
++++ b/drivers/gpio/Kconfig.emul
+@@ -0,0 +1,17 @@
++# Emulated GPIO configuration options
++
++# Copyright (c) 2020 Friedt Professional Engineering Services, Inc
++# SPDX-License-Identifier: Apache-2.0
++
++config GPIO_EMUL
++	bool "Emulated GPIO driver"
++	help
++	  Enable the emulated GPIO driver. Mainly used for testing, this
++	  driver allows for an arbitrary number of emulated GPIO controllers
++	  to be instantiated. Furthermore, the emulated pins can be "wired"
++	  using the regular GPIO callback API and the additional API
++	  available in drivers/gpio/gpio_emul.h . Configuration for each
++	  GPIO instance is accomplished using device tree and an example of
++	  such a configuration is in
++	  tests/drivers/gpio/gpio_basic_api/boards/native_posix_64.overlay
++	  If unsure, say N.
+diff --git a/drivers/gpio/gpio_emul.c b/drivers/gpio/gpio_emul.c
+new file mode 100644
+index 000000000000..b3aec93ae460
+--- /dev/null
++++ b/drivers/gpio/gpio_emul.c
+@@ -0,0 +1,686 @@
++/*
++ * Copyright (c) 2020 Friedt Professional Engineering Services, Inc
++ *
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++#define DT_DRV_COMPAT zephyr_gpio_emul
++
++#include <device.h>
++#include <drivers/gpio.h>
++#include <drivers/gpio/gpio_emul.h>
++#include <errno.h>
++#include <zephyr.h>
++
++#include "gpio_utils.h"
++
++#define LOG_LEVEL CONFIG_GPIO_LOG_LEVEL
++#include <logging/log.h>
++LOG_MODULE_REGISTER(gpio_emul);
++
++#define GPIO_EMUL_INT_BITMASK						\
++	(GPIO_INT_DISABLE | GPIO_INT_ENABLE | GPIO_INT_LEVELS_LOGICAL |	\
++	 GPIO_INT_EDGE | GPIO_INT_LOW_0 | GPIO_INT_HIGH_1)
++
++/**
++ * @brief GPIO Emulator interrupt capabilities
++ *
++ * These enumerations are used as a bitmask and allow the GPIO Emulator to
++ * model GPIO interrupt controllers with varying interrupt trigger support.
++ *
++ * For example, some controllers to not support level interrupts,
++ * some controllers do not support rising and falling edge simultaneously,
++ * etc.
++ *
++ * This primarily affects the behaviour of @ref gpio_pin_interrupt_configure.
++ */
++enum gpio_emul_interrupt_cap {
++	GPIO_EMUL_INT_CAP_EDGE_RISING = 1,
++	GPIO_EMUL_INT_CAP_EDGE_FALLING = 2,
++	GPIO_EMUL_INT_CAP_EDGE_BOTH = 4,
++	GPIO_EMUL_INT_CAP_LEVEL_HIGH = 16,
++	GPIO_EMUL_INT_CAP_LEVEL_LOW = 32,
++	GPIO_EMUL_INT_CAP_LEVEL_BOTH = 64,
++};
++
++/**
++ * @brief Emulated GPIO controller configuration data
++ *
++ * This structure contains all of the state for a given emulated GPIO
++ * controller as well as all of the pins associated with it.
++ *
++ * The @a flags member is a pointer to an array which is @a num_pins in size.
++ *
++ * @a num_pins must be in the range [1, @ref GPIO_MAX_PINS_PER_PORT].
++ *
++ * Pin direction as well as other pin properties are set using
++ * specific bits in @a flags. For more details, see @ref gpio_interface.
++ *
++ * Changes are synchronized using @ref gpio_emul_data.mu.
++ */
++struct gpio_emul_config {
++	/** Common @ref gpio_driver_config */
++	const struct gpio_driver_config common;
++	/** Number of pins available in the given GPIO controller instance */
++	const gpio_pin_t num_pins;
++	/** Supported interrupts */
++	const enum gpio_emul_interrupt_cap interrupt_caps;
++};
++
++/**
++ * @brief Emulated GPIO controller data
++ *
++ * This structure contains data structures used by a emulated GPIO
++ * controller.
++ *
++ * If the application wishes to specify a "wiring" for the emulated
++ * GPIO, then a @ref gpio_callback_handler_t should be registered using
++ * @ref gpio_add_callback.
++ *
++ * Changes are to @ref gpio_emul_data and @ref gpio_emul_config are
++ * synchronized using @a mu.
++ */
++struct gpio_emul_data {
++	/** Common @ref gpio_driver_data */
++	struct gpio_driver_data common;
++	/** Pointer to an array of flags is @a num_pins in size */
++	uint32_t *flags;
++	/** Input values for each pin */
++	gpio_port_value_t input_vals;
++	/** Output values for each pin */
++	gpio_port_value_t output_vals;
++	/** Interrupt status for each pin */
++	gpio_port_pins_t interrupts;
++	/** Mutex to synchronize accesses to driver data and config */
++	struct k_mutex mu;
++	/** Singly-linked list of callbacks associated with the controller */
++	sys_slist_t callbacks;
++};
++
++/**
++ * @brief Obtain a mask of pins that match all of the provided @p flags
++ *
++ * Use this function to see which pins match the current GPIO configuration.
++ *
++ * The caller must ensure that @ref gpio_emul_data.mu is locked.
++ *
++ * @param port The emulated GPIO device pointer
++ * @param mask A mask of flags to match
++ * @param flags The flags to match
++ *
++ * @return a mask of the pins with matching @p flags
++ */
++static gpio_port_pins_t
++get_pins_with_flags(const struct device *port, uint32_t mask,
++	uint32_t flags)
++{
++	size_t i;
++	gpio_port_pins_t matched;
++	struct gpio_emul_data *drv_data =
++		(struct gpio_emul_data *)port->data;
++	const struct gpio_emul_config *config =
++		(const struct gpio_emul_config *)port->config;
++
++	for (matched = 0, i = 0; i < config->num_pins; ++i) {
++		if ((drv_data->flags[i] & mask) == flags) {
++			matched |= BIT(i);
++		}
++	}
++
++	return matched;
++}
++
++/**
++ * @brief Obtain a mask of pins that are configured as @ref GPIO_INPUT
++ *
++ * The caller must ensure that @ref gpio_emul_data.mu is locked.
++ *
++ * @param port The emulated GPIO device pointer
++ */
++static inline gpio_port_pins_t get_input_pins(const struct device *port)
++{
++	return get_pins_with_flags(port, GPIO_INPUT, GPIO_INPUT);
++}
++
++/**
++ * @brief Obtain a mask of pins that are configured as @ref GPIO_OUTPUT
++ *
++ * The caller must ensure that @ref gpio_emul_data.mu is locked.
++ *
++ * @param port The emulated GPIO device pointer
++ */
++static inline gpio_port_pins_t get_output_pins(const struct device *port)
++{
++	return get_pins_with_flags(port, GPIO_OUTPUT, GPIO_OUTPUT);
++}
++
++/*
++ * GPIO backend API (for setting input pin values)
++ */
++
++static void gpio_emul_gen_interrupt_bits(const struct device *port,
++					gpio_port_pins_t mask,
++					gpio_port_value_t prev_values,
++					gpio_port_value_t values,
++					gpio_port_pins_t *interrupts,
++					bool detect_edge)
++{
++	size_t i;
++	bool bit;
++	bool prev_bit;
++	struct gpio_emul_data *drv_data =
++		(struct gpio_emul_data *)port->data;
++	const struct gpio_emul_config *config =
++		(const struct gpio_emul_config *)port->config;
++
++	for (i = 0, *interrupts = 0; mask && i < config->num_pins;
++	     ++i, mask >>= 1, prev_values >>= 1, values >>= 1) {
++		if ((mask & 1) == 0) {
++			continue;
++		}
++
++		prev_bit = ((prev_values & 1) != 0);
++		bit = ((values & 1) != 0);
++
++		switch (drv_data->flags[i] & GPIO_EMUL_INT_BITMASK) {
++		case GPIO_INT_EDGE_RISING:
++			if (config->interrupt_caps & GPIO_EMUL_INT_CAP_EDGE_RISING) {
++				if (detect_edge && !prev_bit && bit) {
++					*interrupts |= BIT(i);
++				}
++			}
++			break;
++		case GPIO_INT_EDGE_FALLING:
++			if (config->interrupt_caps & GPIO_EMUL_INT_CAP_EDGE_FALLING) {
++				if (detect_edge && prev_bit && !bit) {
++					*interrupts |= BIT(i);
++				}
++			}
++			break;
++		case GPIO_INT_EDGE_BOTH:
++			if (config->interrupt_caps & GPIO_EMUL_INT_CAP_EDGE_BOTH) {
++				if (detect_edge && prev_bit != bit) {
++					*interrupts |= BIT(i);
++				}
++			}
++			break;
++		case GPIO_INT_LEVEL_LOW:
++			if (config->interrupt_caps & GPIO_EMUL_INT_CAP_LEVEL_LOW) {
++				if (!bit) {
++					*interrupts |= BIT(i);
++				}
++			}
++			break;
++		case GPIO_INT_LEVEL_HIGH:
++			if (config->interrupt_caps & GPIO_EMUL_INT_CAP_LEVEL_HIGH) {
++				if (bit) {
++					*interrupts |= BIT(i);
++				}
++			}
++			break;
++		case 0:
++		case GPIO_INT_DISABLE:
++			break;
++		default:
++			LOG_DBG("unhandled case %u",
++				drv_data->flags[i] & GPIO_EMUL_INT_BITMASK);
++			break;
++		}
++	}
++}
++
++/**
++ * @brief Trigger possible interrupt events after an input pin has changed
++ *
++ * For more information, see @ref gpio_interface.
++ *
++ * The caller must ensure that @ref gpio_emul_data.mu is locked.
++ *
++ * @param port The emulated GPIO port
++ * @param mask The mask of pins that have changed
++ * @param prev_values Previous pin values
++ * @param values Current pin values
++ */
++static void gpio_emul_pend_interrupt(const struct device *port, gpio_port_pins_t mask,
++				    gpio_port_value_t prev_values,
++				    gpio_port_value_t values)
++{
++	gpio_port_pins_t interrupts;
++	struct gpio_emul_data *drv_data =
++		(struct gpio_emul_data *)port->data;
++
++	for (gpio_emul_gen_interrupt_bits(port, mask, prev_values, values,
++					 &interrupts, true);
++	     interrupts; gpio_emul_gen_interrupt_bits(
++		     port, mask, prev_values, values, &interrupts, false)) {
++		gpio_fire_callbacks(&drv_data->callbacks, port, interrupts);
++	}
++}
++
++int gpio_emul_input_set_masked_pend(const struct device *port, gpio_port_pins_t mask,
++			      gpio_port_value_t values, bool pend)
++{
++	int ret;
++	gpio_port_pins_t input_mask;
++	gpio_port_pins_t prev_values;
++	struct gpio_emul_data *drv_data =
++		(struct gpio_emul_data *)port->data;
++	const struct gpio_emul_config *config =
++		(const struct gpio_emul_config *)port->config;
++
++	if (mask == 0) {
++		return 0;
++	}
++
++	if (~config->common.port_pin_mask & mask) {
++		return -EINVAL;
++	}
++
++	if (values & ~mask) {
++		return -EINVAL;
++	}
++
++	k_mutex_lock(&drv_data->mu, K_FOREVER);
++
++	input_mask = get_input_pins(port);
++	if (~input_mask & mask) {
++		ret = -EINVAL;
++		goto unlock;
++	}
++
++	prev_values = drv_data->input_vals;
++	drv_data->input_vals &= ~mask;
++	drv_data->input_vals |= values;
++	values = drv_data->input_vals;
++
++	if (pend) {
++		gpio_emul_pend_interrupt(port, mask, prev_values, values);
++	}
++	ret = 0;
++
++unlock:
++	k_mutex_unlock(&drv_data->mu);
++
++	return ret;
++}
++
++/* documented in drivers/gpio/gpio_emul.h */
++int gpio_emul_input_set_masked(const struct device *port, gpio_port_pins_t mask,
++			      gpio_port_value_t values)
++{
++	return gpio_emul_input_set_masked_pend(port, mask, values, true);
++}
++
++/* documented in drivers/gpio/gpio_emul.h */
++int gpio_emul_output_get_masked(const struct device *port, gpio_port_pins_t mask,
++			       gpio_port_value_t *values)
++{
++	struct gpio_emul_data *drv_data =
++		(struct gpio_emul_data *)port->data;
++	const struct gpio_emul_config *config =
++		(const struct gpio_emul_config *)port->config;
++
++	if (mask == 0) {
++		return 0;
++	}
++
++	if (~config->common.port_pin_mask & mask) {
++		return -EINVAL;
++	}
++
++	k_mutex_lock(&drv_data->mu, K_FOREVER);
++	*values = drv_data->output_vals & get_output_pins(port);
++	k_mutex_unlock(&drv_data->mu);
++
++	return 0;
++}
++
++/* documented in drivers/gpio/gpio_emul.h */
++int gpio_emul_flags_get(const struct device *port, gpio_pin_t pin, uint32_t *flags)
++{
++	struct gpio_emul_data *drv_data =
++		(struct gpio_emul_data *)port->data;
++	const struct gpio_emul_config *config =
++		(const struct gpio_emul_config *)port->config;
++
++	if (flags == NULL) {
++		return -EINVAL;
++	}
++
++	if ((config->common.port_pin_mask & BIT(pin)) == 0) {
++		return -EINVAL;
++	}
++
++	k_mutex_lock(&drv_data->mu, K_FOREVER);
++	*flags = drv_data->flags[pin];
++	k_mutex_unlock(&drv_data->mu);
++
++	return 0;
++}
++
++/*
++ * GPIO Driver API
++ *
++ * API is documented at drivers/gpio.h
++ */
++
++static int gpio_emul_pin_configure(const struct device *port, gpio_pin_t pin,
++				  gpio_flags_t flags)
++{
++	struct gpio_emul_data *drv_data =
++		(struct gpio_emul_data *)port->data;
++	const struct gpio_emul_config *config =
++		(const struct gpio_emul_config *)port->config;
++
++	if (flags & GPIO_OPEN_DRAIN) {
++		return -ENOTSUP;
++	}
++
++	if (flags & GPIO_OPEN_SOURCE) {
++		return -ENOTSUP;
++	}
++
++	if ((config->common.port_pin_mask & BIT(pin)) == 0) {
++		return -EINVAL;
++	}
++
++	k_mutex_lock(&drv_data->mu, K_FOREVER);
++	drv_data->flags[pin] = flags;
++	if (flags & GPIO_OUTPUT) {
++		if (flags & GPIO_OUTPUT_INIT_LOW) {
++			drv_data->output_vals &= ~BIT(pin);
++			if (flags & GPIO_INPUT) {
++				/* for push-pull mode to generate interrupts */
++				gpio_emul_input_set_masked_pend(port, BIT(pin), drv_data->output_vals, false);
++			}
++		} else if (flags & GPIO_OUTPUT_INIT_HIGH) {
++			drv_data->output_vals |= BIT(pin);
++			if (flags & GPIO_INPUT) {
++				/* for push-pull mode to generate interrupts */
++				gpio_emul_input_set_masked_pend(port, BIT(pin), drv_data->output_vals, false);
++			}
++		}
++	} else if (flags & GPIO_INPUT) {
++		if (flags & GPIO_PULL_UP) {
++			gpio_emul_input_set_masked_pend(port, BIT(pin), BIT(pin), false);
++		} else if (flags & GPIO_PULL_DOWN) {
++			gpio_emul_input_set_masked_pend(port, BIT(pin), 0, false);
++		}
++	}
++
++	k_mutex_unlock(&drv_data->mu);
++	gpio_fire_callbacks(&drv_data->callbacks, port, BIT(pin));
++
++	return 0;
++}
++
++static int gpio_emul_port_get_raw(const struct device *port, gpio_port_value_t *values)
++{
++	struct gpio_emul_data *drv_data =
++		(struct gpio_emul_data *)port->data;
++
++	if (values == NULL) {
++		return -EINVAL;
++	}
++
++	k_mutex_lock(&drv_data->mu, K_FOREVER);
++	*values = drv_data->input_vals & get_input_pins(port);
++	k_mutex_unlock(&drv_data->mu);
++
++	return 0;
++}
++
++static int gpio_emul_port_set_masked_raw(const struct device *port,
++					gpio_port_pins_t mask,
++					gpio_port_value_t values)
++{
++	gpio_port_pins_t output_mask;
++	gpio_port_pins_t prev_values;
++	struct gpio_emul_data *drv_data =
++		(struct gpio_emul_data *)port->data;
++
++	k_mutex_lock(&drv_data->mu, K_FOREVER);
++	output_mask = get_output_pins(port);
++	mask &= output_mask;
++	prev_values = drv_data->output_vals;
++	prev_values &= output_mask;
++	values &= output_mask;
++	drv_data->output_vals &= ~mask;
++	drv_data->output_vals |= values;
++	/* in push-pull, set input values & fire interrupts */
++	gpio_emul_input_set_masked(port, mask & get_input_pins(port), drv_data->output_vals);
++	k_mutex_unlock(&drv_data->mu);
++	/* for output-wiring, so the user can take action based on ouput */
++	if (prev_values ^ values) {
++		gpio_fire_callbacks(&drv_data->callbacks, port, mask & ~get_input_pins(port));
++	}
++
++	return 0;
++}
++
++static int gpio_emul_port_set_bits_raw(const struct device *port,
++				      gpio_port_pins_t pins)
++{
++	struct gpio_emul_data *drv_data =
++		(struct gpio_emul_data *)port->data;
++
++	k_mutex_lock(&drv_data->mu, K_FOREVER);
++	pins &= get_output_pins(port);
++	drv_data->output_vals |= pins;
++	/* in push-pull, set input values & fire interrupts */
++	gpio_emul_input_set_masked(port, pins & get_input_pins(port), drv_data->output_vals);
++	k_mutex_unlock(&drv_data->mu);
++	/* for output-wiring, so the user can take action based on ouput */
++	gpio_fire_callbacks(&drv_data->callbacks, port, pins & ~get_input_pins(port));
++
++	return 0;
++}
++
++static int gpio_emul_port_clear_bits_raw(const struct device *port,
++					gpio_port_pins_t pins)
++{
++	struct gpio_emul_data *drv_data =
++		(struct gpio_emul_data *)port->data;
++
++	k_mutex_lock(&drv_data->mu, K_FOREVER);
++	pins &= get_output_pins(port);
++	drv_data->output_vals &= ~pins;
++	/* in push-pull, set input values & fire interrupts */
++	gpio_emul_input_set_masked(port, pins & get_input_pins(port), drv_data->output_vals);
++	k_mutex_unlock(&drv_data->mu);
++	/* for output-wiring, so the user can take action based on ouput */
++	gpio_fire_callbacks(&drv_data->callbacks, port, pins & ~get_input_pins(port));
++
++	return 0;
++}
++
++static int gpio_emul_port_toggle_bits(const struct device *port, gpio_port_pins_t pins)
++{
++	struct gpio_emul_data *drv_data =
++		(struct gpio_emul_data *)port->data;
++
++	k_mutex_lock(&drv_data->mu, K_FOREVER);
++	drv_data->output_vals ^= (pins & get_output_pins(port));
++	/* in push-pull, set input values but do not fire interrupts (yet) */
++	gpio_emul_input_set_masked_pend(port, pins & get_input_pins(port), drv_data->output_vals, false);
++	k_mutex_unlock(&drv_data->mu);
++	/* for output-wiring, so the user can take action based on ouput */
++	gpio_fire_callbacks(&drv_data->callbacks, port, pins);
++
++	return 0;
++}
++
++static bool gpio_emul_level_trigger_supported(const struct gpio_emul_config *config,
++					     enum gpio_int_trig trig)
++{
++	switch (trig) {
++	case GPIO_INT_TRIG_LOW:
++		return (config->interrupt_caps & GPIO_EMUL_INT_CAP_LEVEL_LOW) != 0;
++	case GPIO_INT_TRIG_HIGH:
++		return (config->interrupt_caps & GPIO_EMUL_INT_CAP_LEVEL_HIGH) != 0;
++	case GPIO_INT_TRIG_BOTH:
++		return (config->interrupt_caps & GPIO_EMUL_INT_CAP_LEVEL_BOTH) != 0;
++	default:
++		return false;
++	}
++}
++
++static bool gpio_emul_edge_trigger_supported(const struct gpio_emul_config *config,
++					    enum gpio_int_trig trig)
++{
++	switch (trig) {
++	case GPIO_INT_TRIG_LOW:
++		return (config->interrupt_caps & GPIO_EMUL_INT_CAP_LEVEL_LOW) != 0;
++	case GPIO_INT_TRIG_HIGH:
++		return (config->interrupt_caps & GPIO_EMUL_INT_CAP_LEVEL_HIGH) != 0;
++	case GPIO_INT_TRIG_BOTH:
++		return (config->interrupt_caps & GPIO_EMUL_INT_CAP_LEVEL_BOTH) != 0;
++	default:
++		return false;
++	}
++}
++
++static int gpio_emul_pin_interrupt_configure(const struct device *port, gpio_pin_t pin,
++					    enum gpio_int_mode mode,
++					    enum gpio_int_trig trig)
++{
++	int ret;
++	struct gpio_emul_data *drv_data =
++		(struct gpio_emul_data *)port->data;
++	const struct gpio_emul_config *config =
++		(const struct gpio_emul_config *)port->config;
++
++	if ((BIT(pin) & config->common.port_pin_mask) == 0) {
++		return -EINVAL;
++	}
++
++	if (mode != GPIO_INT_MODE_DISABLED) {
++		switch (trig) {
++		case GPIO_INT_TRIG_LOW:
++		case GPIO_INT_TRIG_HIGH:
++		case GPIO_INT_TRIG_BOTH:
++			break;
++		default:
++			return -EINVAL;
++		}
++	}
++
++	if (mode == GPIO_INT_MODE_LEVEL) {
++		if (!gpio_emul_level_trigger_supported(config, trig)) {
++			return -ENOTSUP;
++		}
++	}
++
++	if (mode == GPIO_INT_MODE_EDGE) {
++		if (!gpio_emul_edge_trigger_supported(config, trig)) {
++			return -ENOTSUP;
++		}
++	}
++
++	k_mutex_lock(&drv_data->mu, K_FOREVER);
++
++	switch (mode) {
++	case GPIO_INT_MODE_DISABLED:
++		drv_data->flags[pin] &= ~GPIO_EMUL_INT_BITMASK;
++		drv_data->flags[pin] |= GPIO_INT_DISABLE;
++		break;
++	case GPIO_INT_MODE_LEVEL:
++	case GPIO_INT_MODE_EDGE:
++		drv_data->flags[pin] &= ~GPIO_EMUL_INT_BITMASK;
++		drv_data->flags[pin] |= (mode | trig);
++		break;
++	default:
++		ret = -EINVAL;
++		goto unlock;
++	}
++
++	ret = 0;
++
++unlock:
++	k_mutex_unlock(&drv_data->mu);
++
++	return ret;
++}
++
++static int gpio_emul_manage_callback(const struct device *port,
++				    struct gpio_callback *cb, bool set)
++{
++	struct gpio_emul_data *drv_data =
++		(struct gpio_emul_data *)port->data;
++
++	return gpio_manage_callback(&drv_data->callbacks, cb, set);
++}
++
++static uint32_t gpio_emul_get_pending_int(const struct device *dev)
++{
++	struct gpio_emul_data *drv_data =
++		(struct gpio_emul_data *)dev->data;
++
++	return drv_data->interrupts;
++}
++
++static const struct gpio_driver_api gpio_emul_driver = {
++	.pin_configure = gpio_emul_pin_configure,
++	.port_get_raw = gpio_emul_port_get_raw,
++	.port_set_masked_raw = gpio_emul_port_set_masked_raw,
++	.port_set_bits_raw = gpio_emul_port_set_bits_raw,
++	.port_clear_bits_raw = gpio_emul_port_clear_bits_raw,
++	.port_toggle_bits = gpio_emul_port_toggle_bits,
++	.pin_interrupt_configure = gpio_emul_pin_interrupt_configure,
++	.manage_callback = gpio_emul_manage_callback,
++	.get_pending_int = gpio_emul_get_pending_int,
++};
++
++static int gpio_emul_init(const struct device *dev)
++{
++	struct gpio_emul_data *drv_data =
++		(struct gpio_emul_data *)dev->data;
++
++	sys_slist_init(&drv_data->callbacks);
++	return k_mutex_init(&drv_data->mu);
++}
++
++/*
++ * Device Initialization
++ */
++
++#define GPIO_EMUL_INT_CAPS(_num) (0					\
++	+ DT_INST_PROP(_num, rising_edge)				\
++		* GPIO_EMUL_INT_CAP_EDGE_RISING				\
++	+ DT_INST_PROP(_num, falling_edge)				\
++		* GPIO_EMUL_INT_CAP_EDGE_FALLING			\
++	+ DT_INST_PROP(_num, dual_edge)					\
++		* GPIO_EMUL_INT_CAP_EDGE_BOTH				\
++	+ DT_INST_PROP(_num, high_level)				\
++		* GPIO_EMUL_INT_CAP_LEVEL_HIGH				\
++	+ DT_INST_PROP(_num, low_level)					\
++		* GPIO_EMUL_INT_CAP_LEVEL_LOW				\
++	+ DT_INST_PROP(_num, dual_level)				\
++		* GPIO_EMUL_INT_CAP_LEVEL_BOTH				\
++	)
++
++#define DEFINE_GPIO_EMUL(_num)						\
++									\
++	static uint32_t							\
++		gpio_emul_flags_##_num[DT_INST_PROP(_num, ngpios)];	\
++									\
++	static const struct gpio_emul_config gpio_emul_config_##_num = {\
++		.common = {						\
++			.port_pin_mask =				\
++				GPIO_PORT_PIN_MASK_FROM_DT_INST(_num),	\
++		},							\
++		.num_pins = DT_INST_PROP(_num, ngpios),			\
++		.interrupt_caps = GPIO_EMUL_INT_CAPS(_num)		\
++	};								\
++									\
++	static struct gpio_emul_data gpio_emul_data_##_num = {		\
++		.flags = gpio_emul_flags_##_num,			\
++	};								\
++									\
++	DEVICE_AND_API_INIT(gpio_emul_##_num, DT_INST_LABEL(_num),	\
++			    gpio_emul_init, &gpio_emul_data_##_num,	\
++			    &gpio_emul_config_##_num, POST_KERNEL,	\
++			    CONFIG_KERNEL_INIT_PRIORITY_DEVICE,		\
++			    &gpio_emul_driver)
++
++DT_INST_FOREACH_STATUS_OKAY(DEFINE_GPIO_EMUL);
+diff --git a/dts/bindings/gpio/zephyr,gpio-emul.yaml b/dts/bindings/gpio/zephyr,gpio-emul.yaml
+new file mode 100644
+index 000000000000..9a2459ccefbc
+--- /dev/null
++++ b/dts/bindings/gpio/zephyr,gpio-emul.yaml
+@@ -0,0 +1,40 @@
++# Copyright 2020, Friedt Professional Engineering Services, Inc
++# SPDX-License-Identifier: Apache-2.0
++
++description: GPIO Emulator
++
++compatible: "zephyr,gpio-emul"
++
++include: [gpio-controller.yaml, base.yaml]
++
++properties:
++    reg:
++      required: true
++
++    label:
++      required: true
++
++    rising-edge:
++      type: boolean
++
++    falling-edge:
++      type: boolean
++
++    dual-edge:
++      type: boolean
++
++    high-level:
++      type: boolean
++
++    low-level:
++      type: boolean
++
++    dual-level:
++      type: boolean
++
++    "#gpio-cells":
++      const: 2
++
++gpio-cells:
++  - pin
++  - flags
+diff --git a/include/drivers/gpio/gpio_emul.h b/include/drivers/gpio/gpio_emul.h
+new file mode 100644
+index 000000000000..712e8721973d
+--- /dev/null
++++ b/include/drivers/gpio/gpio_emul.h
+@@ -0,0 +1,132 @@
++/*
++ * Copyright (c) 2020 Friedt Professional Engineering Services, Inc
++ *
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++/**
++ * @file
++ * @brief Backend API for emulated GPIO
++ */
++
++#ifndef ZEPHYR_INCLUDE_DRIVERS_GPIO_GPIO_EMUL_H_
++#define ZEPHYR_INCLUDE_DRIVERS_GPIO_GPIO_EMUL_H_
++
++#include <zephyr/types.h>
++#include <drivers/gpio.h>
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++/**
++ * @brief Emulated GPIO backend API
++ * @defgroup gpio_emul Emulated GPIO
++ * @ingroup gpio_interface
++ * @{
++ *
++ * Behaviour of emulated GPIO is application-defined. As-such, each
++ * application may
++ *
++ * - define a Device Tree overlay file to indicate the number of GPIO
++ *   controllers as well as the number of pins for each controller
++ * - register a callback with the GPIO controller using
++ *   @ref gpio_add_callback to emulate "wiring"
++ * - asynchronously call @ref gpio_emul_input_set and / or
++ *   @ref gpio_emul_input_set_masked in order to emulate GPIO events
++ *
++ * An example of an appropriate Device Tree overlay file is in
++ * tests/drivers/gpio/gpio_basic_api/boards/native_posix_64.overlay.
++ *
++ * An example of registering a callback to emulate "wiring" as well as
++ * an example of calling @ref gpio_emul_input_set is in the file
++ * tests/drivers/gpio/gpio_basic_api/src/main.c .
++ */
++
++/**
++ * @brief Modify the values of one or more emulated GPIO input @p pins
++ *
++ * @param port The emulated GPIO port
++ * @param pins The mask of pins that have changed
++ * @param values New values to assign to @p pins
++ *
++ * @return 0 on success
++ * @return -EINVAL if an invalid argument is provided
++ */
++int gpio_emul_input_set_masked(const struct device *port, gpio_port_pins_t pins,
++			      gpio_port_value_t values);
++
++/**
++ * @brief Modify the value of one emulated GPIO input @p pin
++ *
++ * @param port The emulated GPIO port
++ * @param pin The pin to modify
++ * @param value New values to assign to @p pin
++ *
++ * @return 0 on success
++ * @return -EINVAL if an invalid argument is provided
++ */
++static inline int gpio_emul_input_set(const struct device *port, gpio_pin_t pin,
++				     int value)
++{
++	return gpio_emul_input_set_masked(port, BIT(pin), value ? BIT(pin) : 0);
++}
++
++/**
++ * @brief Read the value of one or more emulated GPIO output @p pins
++ *
++ * @param port The emulated GPIO port
++ * @param pins The mask of pins that have changed
++ * @param values A pointer to where the value of @p pins will be stored
++ *
++ * @return 0 on success
++ * @return -EINVAL if an invalid argument is provided
++ */
++int gpio_emul_output_get_masked(const struct device *port, gpio_port_pins_t pins,
++			       gpio_port_value_t *values);
++
++/**
++ * @brief Read the value of one emulated GPIO output @p pin
++ *
++ * @param port The emulated GPIO port
++ * @param pin The pin to read
++ *
++ * @return 0 or 1 on success
++ * @return -EINVAL if an invalid argument is provided
++ */
++static inline int gpio_emul_output_get(const struct device *port, gpio_pin_t pin)
++{
++	int ret;
++	gpio_port_value_t values;
++
++	ret = gpio_emul_output_get_masked(port, BIT(pin), &values);
++	if (ret == 0) {
++		ret = (values & BIT(pin)) ? 1 : 0;
++	}
++
++	return ret;
++}
++
++/**
++ * @brief Get @p flags for a given emulated GPIO @p pin
++ *
++ * For more information on available flags, see @ref gpio_interface.
++ *
++ * @param port The emulated GPIO port
++ * @param pin The pin to retrieve @p flags for
++ * @param flags a pointer to where the flags for @p pin will be stored
++ *
++ * @return 0 on success
++ * @return -EINVAL if an invalid argument is provided
++ */
++int gpio_emul_flags_get(const struct device *port, gpio_pin_t pin, uint32_t *flags);
++
++/**
++ * @}
++ */
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif /* ZEPHYR_INCLUDE_DRIVERS_GPIO_GPIO_EMUL_H_ */
+diff --git a/tests/drivers/gpio/gpio_api_1pin/boards/native_posix.conf b/tests/drivers/gpio/gpio_api_1pin/boards/native_posix.conf
+new file mode 100644
+index 000000000000..cc7d82349cbd
+--- /dev/null
++++ b/tests/drivers/gpio/gpio_api_1pin/boards/native_posix.conf
+@@ -0,0 +1,4 @@
++# Copyright (c) 2020 Friedt Professional Engineering Services, Inc
++# SPDX-License-Identifier: Apache-2.0
++
++CONFIG_GPIO_EMUL=y
+diff --git a/tests/drivers/gpio/gpio_api_1pin/boards/native_posix.overlay b/tests/drivers/gpio/gpio_api_1pin/boards/native_posix.overlay
+new file mode 100644
+index 000000000000..ed09218f14e3
+--- /dev/null
++++ b/tests/drivers/gpio/gpio_api_1pin/boards/native_posix.overlay
+@@ -0,0 +1,9 @@
++/*
++ * Copyright (c) 2020 Friedt Professional Engineering Services, Inc
++ *
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++&gpio0 {
++	ngpios = <2>;
++};
+diff --git a/tests/drivers/gpio/gpio_api_1pin/boards/native_posix_64.conf b/tests/drivers/gpio/gpio_api_1pin/boards/native_posix_64.conf
+new file mode 100644
+index 000000000000..cc7d82349cbd
+--- /dev/null
++++ b/tests/drivers/gpio/gpio_api_1pin/boards/native_posix_64.conf
+@@ -0,0 +1,4 @@
++# Copyright (c) 2020 Friedt Professional Engineering Services, Inc
++# SPDX-License-Identifier: Apache-2.0
++
++CONFIG_GPIO_EMUL=y
+diff --git a/tests/drivers/gpio/gpio_api_1pin/boards/native_posix_64.overlay b/tests/drivers/gpio/gpio_api_1pin/boards/native_posix_64.overlay
+new file mode 100644
+index 000000000000..02b0040e8a6d
+--- /dev/null
++++ b/tests/drivers/gpio/gpio_api_1pin/boards/native_posix_64.overlay
+@@ -0,0 +1,6 @@
++/*
++ * Copyright (c) 2020 Friedt Professional Engineering Services, Inc
++ *
++ * SPDX-License-Identifier: Apache-2.0
++ */
++#include "native_posix.overlay"
+diff --git a/tests/drivers/gpio/gpio_basic_api/boards/native_posix.conf b/tests/drivers/gpio/gpio_basic_api/boards/native_posix.conf
+new file mode 100644
+index 000000000000..cc7d82349cbd
+--- /dev/null
++++ b/tests/drivers/gpio/gpio_basic_api/boards/native_posix.conf
+@@ -0,0 +1,4 @@
++# Copyright (c) 2020 Friedt Professional Engineering Services, Inc
++# SPDX-License-Identifier: Apache-2.0
++
++CONFIG_GPIO_EMUL=y
+diff --git a/tests/drivers/gpio/gpio_basic_api/boards/native_posix.overlay b/tests/drivers/gpio/gpio_basic_api/boards/native_posix.overlay
+new file mode 100644
+index 000000000000..5fe7d63c5fd9
+--- /dev/null
++++ b/tests/drivers/gpio/gpio_basic_api/boards/native_posix.overlay
+@@ -0,0 +1,17 @@
++/*
++ * Copyright (c) 2020 Friedt Professional Engineering Services, Inc
++ *
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++/ {
++	resources {
++		compatible = "test,gpio_basic_api";
++		out-gpios = <&gpio0 0 0>; /* Pin 0 */
++		in-gpios = <&gpio0 1 0>; /* Pin 1 */
++	};
++};
++
++&gpio0 {
++	ngpios = <2>;
++};
+diff --git a/tests/drivers/gpio/gpio_basic_api/boards/native_posix_64.conf b/tests/drivers/gpio/gpio_basic_api/boards/native_posix_64.conf
+new file mode 100644
+index 000000000000..cc7d82349cbd
+--- /dev/null
++++ b/tests/drivers/gpio/gpio_basic_api/boards/native_posix_64.conf
+@@ -0,0 +1,4 @@
++# Copyright (c) 2020 Friedt Professional Engineering Services, Inc
++# SPDX-License-Identifier: Apache-2.0
++
++CONFIG_GPIO_EMUL=y
+diff --git a/tests/drivers/gpio/gpio_basic_api/boards/native_posix_64.overlay b/tests/drivers/gpio/gpio_basic_api/boards/native_posix_64.overlay
+new file mode 100644
+index 000000000000..02b0040e8a6d
+--- /dev/null
++++ b/tests/drivers/gpio/gpio_basic_api/boards/native_posix_64.overlay
+@@ -0,0 +1,6 @@
++/*
++ * Copyright (c) 2020 Friedt Professional Engineering Services, Inc
++ *
++ * SPDX-License-Identifier: Apache-2.0
++ */
++#include "native_posix.overlay"
+diff --git a/tests/drivers/gpio/gpio_basic_api/src/gpio_emul_callback.c b/tests/drivers/gpio/gpio_basic_api/src/gpio_emul_callback.c
+new file mode 100644
+index 000000000000..8184bd316d6f
+--- /dev/null
++++ b/tests/drivers/gpio/gpio_basic_api/src/gpio_emul_callback.c
+@@ -0,0 +1,73 @@
++/*
++ * Copyright (c) 2020 Friedt Professional Engineering Services, Inc
++ *
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++#ifdef CONFIG_GPIO_EMUL
++
++#include <device.h>
++#include <drivers/gpio.h>
++#include <drivers/gpio/gpio_emul.h>
++#include <sys/util.h>
++#include <zephyr.h>
++
++#include "test_gpio.h"
++
++/*
++ * When GPIO are emulated, this callback can be used to implement the
++ * "wiring". E.g. in this test application, PIN_OUT is connected to
++ * PIN_IN. When PIN_OUT is set high or low, PIN_IN must be set
++ * correspondingly, as if a wire were connecting the two.
++ */
++static void gpio_emul_callback_handler(const struct device *port,
++				      struct gpio_callback *cb,
++				      gpio_port_pins_t pins);
++
++struct gpio_callback gpio_emul_callback = {
++	.handler = gpio_emul_callback_handler,
++	.pin_mask = BIT(PIN_IN) | BIT(PIN_OUT),
++};
++
++static void gpio_emul_callback_handler(const struct device *port,
++				      struct gpio_callback *cb,
++				      gpio_port_pins_t pins)
++{
++	int r;
++	int val;
++	uint32_t output_flags;
++	uint32_t input_flags;
++
++	__ASSERT(pins & gpio_emul_callback.pin_mask, "invalid mask: %x", pins);
++
++	r = gpio_emul_flags_get(port, PIN_OUT, &output_flags);
++	__ASSERT(r == 0, "gpio_emul_flags_get() failed: %d", r);
++	r = gpio_emul_flags_get(port, PIN_IN, &input_flags);
++	__ASSERT(r == 0, "gpio_emul_flags_get() failed: %d", r);
++
++	if ((output_flags & GPIO_OUTPUT) && (input_flags & GPIO_INPUT)) {
++		r = gpio_emul_output_get(port, PIN_OUT);
++		__ASSERT(r == 0 || r == 1, "gpio_emul_output_get() failed: %d", r);
++		val = r;
++		r = gpio_emul_input_set(port, PIN_IN, val);
++		__ASSERT(r == 0, "gpio_emul_input_set() failed: %d", r);
++
++		return;
++	}
++
++	if ((output_flags == GPIO_DISCONNECTED) && (input_flags & GPIO_INPUT)) {
++		if (input_flags & GPIO_PULL_UP) {
++			val = 1;
++		} else {
++			/* either GPIO_PULL_DOWN or no input */
++			val = 0;
++		}
++
++		r = gpio_emul_input_set(port, PIN_IN, val);
++		__ASSERT(r == 0, "gpio_emul_input_set() failed: %d", r);
++
++		return;
++	}
++}
++
++#endif /* CONFIG_GPIO_EMUL */
+diff --git a/tests/drivers/gpio/gpio_basic_api/src/main.c b/tests/drivers/gpio/gpio_basic_api/src/main.c
+index bedf96f2f7a3..3f90447e9322 100644
+--- a/tests/drivers/gpio/gpio_basic_api/src/main.c
++++ b/tests/drivers/gpio/gpio_basic_api/src/main.c
+@@ -115,6 +115,13 @@ static void board_setup(void)
+ 
+ 	pinmux_pin_set(pmx, PIN_OUT, PORT_PCR_MUX(kPORT_MuxAsGpio));
+ 	pinmux_pin_set(pmx, PIN_IN, PORT_PCR_MUX(kPORT_MuxAsGpio));
++#elif defined(CONFIG_GPIO_EMUL)
++	extern struct gpio_callback gpio_emul_callback;
++	const struct device *dev = device_get_binding(DEV_NAME);
++	zassert_not_equal(dev, NULL,
++			  "Device not found");
++	int rc = gpio_add_callback(dev, &gpio_emul_callback);
++	__ASSERT(rc == 0, "gpio_add_callback() failed: %d", rc);
+ #endif
+ }
+ 

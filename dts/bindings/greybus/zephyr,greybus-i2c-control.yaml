@@ -1,0 +1,22 @@
+# Copyright (c) 2020, Friedt Professional Engineering Services, Inc
+# SPDX-License-Identifier: Apache-2.0
+
+# Common fields for Greybus I2C Controllers
+
+description: Greybus I2C Controller
+
+compatible: "zephyr,greybus-i2c-controller"
+
+include: ["zephyr,greybus-cport.yaml"]
+
+properties:
+    "greybus-i2c-controller":
+      type: phandle
+      required: true
+      description: Conveys which I2C port is associated with this Greybus I2C Controller instance
+    "cport-protocol":
+      type: int
+      # I2C protocol
+      default: 0x03
+      const: 0x03
+      description: The I2C CPort protocol

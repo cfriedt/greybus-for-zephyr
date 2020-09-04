@@ -1,0 +1,24 @@
+# Copyright (c) 2020, Friedt Professional Engineering Services, Inc
+# SPDX-License-Identifier: Apache-2.0
+
+# Common fields for Greybus Bundles
+
+description: Greybus Bundle
+
+compatible: "zephyr,greybus-bundle"
+
+include: [base.yaml]
+
+properties:
+    "greybus-bundle":
+      type: boolean
+      required: true
+      description: Conveys this node is an instance of a Greybus Bundle
+    "id":
+      type: int
+      required: true
+      description: Bundle ID
+    "bundle-class":
+      type: int
+      required: true
+      description: The Greybus BundleClass (see dt-bindings/greybus/greybus.h)

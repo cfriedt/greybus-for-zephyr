@@ -1,0 +1,22 @@
+# Copyright (c) 2020, Friedt Professional Engineering Services, Inc
+# SPDX-License-Identifier: Apache-2.0
+
+# Common fields for Greybus Controllers
+
+description: Greybus Control
+
+compatible: "zephyr,greybus-control"
+
+include: ["zephyr,greybus-cport.yaml"]
+
+properties:
+    "greybus-controller":
+      type: boolean
+      required: true
+      description: Conveys this node is an instance of a Greybus Controller
+    "cport-protocol":
+      type: int
+      # Control protocol
+      default: 0x00
+      const: 0x00
+      description: The Control CPort protocol

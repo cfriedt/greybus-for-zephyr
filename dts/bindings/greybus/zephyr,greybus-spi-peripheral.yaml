@@ -1,0 +1,39 @@
+# Copyright (c) 2020, Friedt Professional Engineering Services, Inc
+# SPDX-License-Identifier: Apache-2.0
+
+# Common fields for Greybus SPI Peripherals
+# used to build a table of "struct gb_spi_device_config_response".
+# See also "zephyr,greybus-spi-controller"
+
+description: Greybus SPI Peripheral
+
+compatible: "zephyr,greybus-spi-peripheral"
+
+include: ["base.yaml"]
+
+properties:
+    "cs":
+      type: int
+      required: true
+    "mode":
+      type: int
+      required: true
+      description: The chip-select associated with this SPI peripheral
+    "bpw":
+      type: int
+      required: true
+      description: The number of bits per SPI word that this peripheral accepts
+    "max-speed-hz":
+      type: int
+      required: true
+      description: The maximum bus speed supported by this SPI peripheral
+    "device-type":
+      # see GB_SPI_SPI_* defined in dt-bindings/greybus/spi.h
+      type: int
+      required: true
+      description: Greybus SPI device type
+    "device-name":
+      type: string
+      required: true
+      description: Greybus SPI device name
+

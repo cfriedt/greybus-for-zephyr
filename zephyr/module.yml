@@ -1,0 +1,19 @@
+# West YAML for Greybus Module
+#
+# Copyright (c) 2020, Friedt Professional Engineering Services, Inc
+#
+# SPDX-License-Identifier: Apache-2.0
+
+build:
+  settings:
+    # These may be removed if unused
+    #board_root: boards
+    dts_root: .
+    #soc_root: soc
+    #arch_root: arch
+  cmake: .
+  kconfig: subsys/greybus/Kconfig
+samples:
+  - samples
+tests:
+  - tests
