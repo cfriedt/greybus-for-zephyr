@@ -1,0 +1,7 @@
+zephyr_include_directories(include)
+add_subdirectory_ifdef(CONFIG_GREYBUS subsys/greybus)
+#add_subdirectory(samples/subsys/greybus/net)
+#add_subdirectory(samples/subsys/greybus/uart)
+#add_subdirectory(tests/subsys/greybus/gpio)
+#add_subdirectory(tests/subsys/greybus/i2c)
+#add_subdirectory(tests/subsys/greybus/net)

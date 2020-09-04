@@ -1,0 +1,116 @@
+diff --git a/include/sys/byteorder.h b/include/sys/byteorder.h
+index fc5c56056e..7830d7dde2 100644
+--- a/include/sys/byteorder.h
++++ b/include/sys/byteorder.h
+@@ -16,21 +16,30 @@
+ #include <sys/__assert.h>
+ #include <toolchain.h>
+ 
+-/* Internal helpers only used by the sys_* APIs further below */
+-#define __bswap_16(x) ((uint16_t) ((((x) >> 8) & 0xff) | (((x) & 0xff) << 8)))
+ #define __bswap_24(x) ((uint32_t) ((((x) >> 16) & 0xff) | \
+ 				   (((x)) & 0xff00) | \
+ 				   (((x) & 0xff) << 16)))
+-#define __bswap_32(x) ((uint32_t) ((((x) >> 24) & 0xff) | \
+-				   (((x) >> 8) & 0xff00) | \
+-				   (((x) & 0xff00) << 8) | \
+-				   (((x) & 0xff) << 24)))
+ #define __bswap_48(x) ((uint64_t) ((((x) >> 40) & 0xff) | \
+ 				   (((x) >> 24) & 0xff00) | \
+ 				   (((x) >> 8) & 0xff0000) | \
+ 				   (((x) & 0xff0000) << 8) | \
+ 				   (((x) & 0xff00) << 24) | \
+ 				   (((x) & 0xff) << 40)))
++
++#if defined(CONFIG_BOARD_NATIVE_POSIX_64BIT) \
++	|| defined(CONFIG_BOARD_NATIVE_POSIX_32BIT) \
++	|| defined(CONFIG_BOARD_NRF52_BSIM)
++
++#include <byteswap.h>
++
++#else /* CONFIG_*POSIX */
++
++/* Internal helpers only used by the sys_* APIs further below */
++#define __bswap_16(x) ((uint16_t) ((((x) >> 8) & 0xff) | (((x) & 0xff) << 8)))
++#define __bswap_32(x) ((uint32_t) ((((x) >> 24) & 0xff) | \
++				   (((x) >> 8) & 0xff00) | \
++				   (((x) & 0xff00) << 8) | \
++				   (((x) & 0xff) << 24)))
+ #define __bswap_64(x) ((uint64_t) ((((x) >> 56) & 0xff) | \
+ 				   (((x) >> 40) & 0xff00) | \
+ 				   (((x) >> 24) & 0xff0000) | \
+@@ -39,6 +48,7 @@
+ 				   (((x) & 0xff0000) << 24) | \
+ 				   (((x) & 0xff00) << 40) | \
+ 				   (((x) & 0xff) << 56)))
++#endif /* CONFIG_*POSIX */
+ 
+ /** @def sys_le16_to_cpu
+  *  @brief Convert 16-bit integer from little-endian to host endianness.
+@@ -168,6 +178,58 @@
+  *  @return 48-bit integer in big-endian format.
+  */
+ 
++#if defined(CONFIG_BOARD_NATIVE_POSIX_64BIT) \
++	|| defined(CONFIG_BOARD_NATIVE_POSIX_32BIT) \
++	|| defined(CONFIG_BOARD_NRF52_BSIM)
++
++#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
++#define sys_le16_to_cpu(val) (val)
++#define sys_cpu_to_le16(val) (val)
++#define sys_le24_to_cpu(val) (val)
++#define sys_cpu_to_le24(val) (val)
++#define sys_le32_to_cpu(val) (val)
++#define sys_cpu_to_le32(val) (val)
++#define sys_le48_to_cpu(val) (val)
++#define sys_cpu_to_le48(val) (val)
++#define sys_le64_to_cpu(val) (val)
++#define sys_cpu_to_le64(val) (val)
++#define sys_be16_to_cpu(val) __builtin_bswap16(val)
++#define sys_cpu_to_be16(val) __builtin_bswap16(val)
++#define sys_be24_to_cpu(val) __builtin_bswap24(val)
++#define sys_cpu_to_be24(val) __builtin_bswap24(val)
++#define sys_be32_to_cpu(val) __builtin_bswap32(val)
++#define sys_cpu_to_be32(val) __builtin_bswap32(val)
++#define sys_be48_to_cpu(val) __builtin_bswap48(val)
++#define sys_cpu_to_be48(val) __builtin_bswap48(val)
++#define sys_be64_to_cpu(val) __builtin_bswap64(val)
++#define sys_cpu_to_be64(val) __builtin_bswap64(val)
++#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
++#define sys_le16_to_cpu(val) __bswap_16(val)
++#define sys_cpu_to_le16(val) __bswap_16(val)
++#define sys_le24_to_cpu(val) __bswap_24(val)
++#define sys_cpu_to_le24(val) __bswap_24(val)
++#define sys_le32_to_cpu(val) __bswap_32(val)
++#define sys_cpu_to_le32(val) __bswap_32(val)
++#define sys_le48_to_cpu(val) __bswap_48(val)
++#define sys_cpu_to_le48(val) __bswap_48(val)
++#define sys_le64_to_cpu(val) __bswap_64(val)
++#define sys_cpu_to_le64(val) __bswap_64(val)
++#define sys_be16_to_cpu(val) (val)
++#define sys_cpu_to_be16(val) (val)
++#define sys_be24_to_cpu(val) (val)
++#define sys_cpu_to_be24(val) (val)
++#define sys_be32_to_cpu(val) (val)
++#define sys_cpu_to_be32(val) (val)
++#define sys_be48_to_cpu(val) (val)
++#define sys_cpu_to_be48(val) (val)
++#define sys_be64_to_cpu(val) (val)
++#define sys_cpu_to_be64(val) (val)
++#else
++#error "Unknown byte order"
++#endif
++
++#else /* CONFIG_*POSIX */
++
+ #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+ #define sys_le16_to_cpu(val) (val)
+ #define sys_cpu_to_le16(val) (val)
+@@ -213,6 +275,7 @@
+ #else
+ #error "Unknown byte order"
+ #endif
++#endif /* CONFIG_*POSIX */
+ 
+ /**
+  *  @brief Put a 16-bit integer as big-endian to arbitrary location.

@@ -1,0 +1,13 @@
+sample:
+  description: Use Linux to blink an LED on a remote device using a serial
+    connection
+  name: Greybus UART Blinky Demo
+tests:
+  sample.greybus.uart:
+    harness: greybus_uart
+    platform_whitelist: qemu_x86 cc1352r1_launchxl nrf52840dk_nrf52840
+    tags: greybus uart
+  sample.greybus.uart.cc1352r1_launchxl:
+    extra_args: OVERLAY_CONFIG="cc1352r1_launchxl.conf"
+  sample.greybus.uart.nrf52840dk_nrf52840:
+    extra_args: OVERLAY_CONFIG="nrf52840dk_nrf52840.conf"
