@@ -1,0 +1,58 @@
+common:
+  tags: net socket greybus
+  depends_on: netif
+sample:
+  description: Use Linux to blink an LED on a remote device using a network
+    connection
+  name: Greybus Network Blinky Demo
+tests:
+  sample.greybus.net:
+    platform_whitelist: qemu_x86 sam_e70_xplained frdm_k64f
+      qemu_cortex_m3 frdm_kw41z
+  sample.greybus.net.802154:
+    extra_args: OVERLAY_CONFIG="overlay-qemu_802154.conf"
+    platform_whitelist: qemu_x86
+  sample.greybus.net.bt:
+    extra_args: OVERLAY_CONFIG="overlay-bt.conf"
+    platform_whitelist: qemu_x86
+    tags: bluetooth
+  sample.greybus.net.mcr20a:
+    extra_args: SHIELD=frdm_cr20a OVERLAY_CONFIG=overlay-802154.conf
+    platform_whitelist: frdm_k64f
+  sample.greybus.net.nrf_802154:
+    extra_args: OVERLAY_CONFIG="overlay-802154.conf"
+    platform_whitelist: nrf52840dk_nrf52840
+  sample.greybus.net.usbnet:
+    depends_on: usb_device
+    harness: net
+    extra_args: OVERLAY_CONFIG="overlay-netusb.conf"
+    tags: net usb
+  sample.greybus.net.usbnet_composite:
+    depends_on: usb_device
+    harness: net
+    extra_args: OVERLAY_CONFIG="overlay-netusb.conf"
+    extra_configs:
+      - CONFIG_USB_COMPOSITE_DEVICE=y
+    tags: net usb
+  sample.greybus.net.nrf_openthread:
+    extra_args: OVERLAY_CONFIG="overlay-ot.conf"
+    slow: true
+    tags: net openthread
+    platform_whitelist: nrf52840dk_nrf52840
+  sample.greybus.net.kw41z_openthread:
+    extra_args: OVERLAY_CONFIG="overlay-ot.conf"
+    slow: true
+    tags: net openthread
+    platform_whitelist: frdm_kw41z
+  sample.greybus.net.e1000:
+    extra_args: OVERLAY_CONFIG="overlay-e1000.conf"
+    tags: net
+    platform_whitelist: qemu_x86
+  sample.greybus.net.stellaris:
+    extra_args: OVERLAY_CONFIG="overlay-qemu_cortex_m3_eth.conf"
+    tags: net
+    platform_whitelist: qemu_cortex_m3
+  sample.greybus.net.smsc911x:
+    extra_args: OVERLAY_CONFIG="overlay-smsc911x.conf"
+    tags: net
+    platform_whitelist: mps2_an385

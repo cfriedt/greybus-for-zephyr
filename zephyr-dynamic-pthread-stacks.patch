@@ -1,0 +1,429 @@
+diff --git a/include/kernel.h b/include/kernel.h
+index 381af7907241..c81918c2d3da 100644
+--- a/include/kernel.h
++++ b/include/kernel.h
+@@ -488,6 +488,14 @@ extern void k_thread_foreach_unlocked(
+  */
+ #define K_INHERIT_PERMS (BIT(3))
+ 
++/**
++ * @brief dynamically allocated stack
++ *
++ * This flag indicates that a thread stack has been heap-allocated with
++ * @ref k_malloc.
++ */
++#define K_STACK_ON_HEAP (BIT(4))
++
+ #ifdef CONFIG_X86
+ /* x86 Bitmask definitions for threads user options */
+ 
+diff --git a/include/posix/pthread.h b/include/posix/pthread.h
+index 12707894db0f..59771450067f 100644
+--- a/include/posix/pthread.h
++++ b/include/posix/pthread.h
+@@ -477,6 +477,7 @@ static inline int pthread_rwlockattr_init(pthread_rwlockattr_t *attr)
+ 	return 0;
+ }
+ 
++int pthread_attr_setstacksize(pthread_attr_t *attr, size_t stacksize);
+ int pthread_attr_getstacksize(const pthread_attr_t *attr, size_t *stacksize);
+ int pthread_attr_setschedpolicy(pthread_attr_t *attr, int policy);
+ int pthread_attr_getschedpolicy(const pthread_attr_t *attr, int *policy);
+diff --git a/lib/posix/Kconfig b/lib/posix/Kconfig
+index b1a0d52995b1..35f31f92794f 100644
+--- a/lib/posix/Kconfig
++++ b/lib/posix/Kconfig
+@@ -39,6 +39,30 @@ config SEM_VALUE_MAX
+ 	help
+ 	  Maximum semaphore count in POSIX compliant Application.
+ 
++config PTHREAD_DYNAMIC_STACK
++	bool "Support for dynamic stacks"
++	select THREAD_STACK_INFO
++	default y
++	help
++	  POSIX 1003.1 allows a NULL pthread_attr_t* to be passed to
++	  pthread_create(3). However, Zephyr has traditionally required
++	  that the caller statically allocate a stack and pass it in via the
++	  pthread_attr_t*. With this option selected, NULL will be permitted
++	  and a suitable stack will be automatically allocated and assigned,
++	  inheriting permissions from the calling thread.
++
++if PTHREAD_DYNAMIC_STACK
++config PTHREAD_DYNAMIC_STACK_DEFAULT_SIZE
++	int "Default size for a dynamic pthread stack (in bytes)"
++	default 1024
++	help
++	  This value is used for the default size of dynamically-allocated
++	  stacks. However, users may still specify the size of
++	  dynamically-allocated stacks via pthread_attr_setstacksize(3)
++	  prior to calling pthread_create(3).
++
++endif # PTHREAD_DYNAMIC_STACK
++
+ endif # PTHREAD_IPC
+ 
+ config POSIX_CLOCK
+diff --git a/lib/posix/pthread.c b/lib/posix/pthread.c
+index e997d6653466..75baef2488d1 100644
+--- a/lib/posix/pthread.c
++++ b/lib/posix/pthread.c
+@@ -6,12 +6,19 @@
+ 
+ #include <kernel.h>
+ #include <stdio.h>
++#include <stdlib.h>
+ #include <sys/atomic.h>
+ #include <ksched.h>
+ #include <wait_q.h>
+ #include <posix/pthread.h>
+ #include <sys/slist.h>
+ 
++#ifdef CONFIG_PTHREAD_DYNAMIC_STACK_DEFAULT_SIZE
++#define DYNAMIC_STACK_SIZE CONFIG_PTHREAD_DYNAMIC_STACK_DEFAULT_SIZE
++#else
++#define DYNAMIC_STACK_SIZE 0
++#endif
++
+ #define PTHREAD_INIT_FLAGS	PTHREAD_CANCEL_ENABLE
+ #define PTHREAD_CANCELED	((void *) -1)
+ 
+@@ -115,7 +122,11 @@ int pthread_attr_setstack(pthread_attr_t *attr, void *stackaddr,
+ static void zephyr_thread_wrapper(void *arg1, void *arg2, void *arg3)
+ {
+ 	void * (*fun_ptr)(void *) = arg3;
+-
++	struct _thread_stack_info *stack_info
++		= &k_current_get()->stack_info;
++	__ASSERT_NO_MSG(stack_info->delta == 0);
++	stack_info->delta = (size_t)
++			((uint8_t *)stack_info->start - (uint8_t *)arg2);
+ 	fun_ptr(arg1);
+ 	pthread_exit(NULL);
+ }
+@@ -135,17 +146,43 @@ int pthread_create(pthread_t *newthread, const pthread_attr_t *attr,
+ 	uint32_t pthread_num;
+ 	pthread_condattr_t cond_attr;
+ 	struct posix_thread *thread;
++	pthread_attr_t dynamic_attr;
++	k_thread_stack_t *dynamic_stack = NULL;
++	/* a non-const pthread_attr_t* that we can modify, if needed */
++	pthread_attr_t *mattr = (pthread_attr_t *)attr;
+ 
+-	/*
+-	 * FIXME: Pthread attribute must be non-null and it provides stack
+-	 * pointer and stack size. So even though POSIX 1003.1 spec accepts
+-	 * attrib as NULL but zephyr needs it initialized with valid stack.
+-	 */
+-	if ((attr == NULL) || (attr->initialized == 0U)
+-	    || (attr->stack == NULL) || (attr->stacksize == 0)) {
++	if (mattr != NULL && mattr->initialized == 0) {
+ 		return EINVAL;
+ 	}
+ 
++	if (mattr == NULL || mattr->stack == NULL) {
++		if (IS_ENABLED(CONFIG_PTHREAD_DYNAMIC_STACK)) {
++			/*
++			 * We dynamically allocate space when either
++			 * 1) attr == NULL -> use DYNAMIC_STACK_SIZE, or
++			 * 2) attr != NULL && attr->stack == NULL
++			 *    -> allocate attr->stacksize
++			 */
++			if (mattr == NULL) {
++				(void) pthread_attr_init(&dynamic_attr);
++				dynamic_attr.stacksize = DYNAMIC_STACK_SIZE;
++				mattr = &dynamic_attr;
++			}
++
++			dynamic_stack = k_aligned_alloc(ARCH_STACK_PTR_ALIGN,
++				Z_KERNEL_STACK_SIZE_ADJUST(mattr->stacksize));
++			if (dynamic_stack == NULL) {
++				return EAGAIN;
++			}
++
++			__ASSERT_NO_MSG(dynamic_stack != NULL);
++			mattr->stack = dynamic_stack;
++			mattr->flags |= K_STACK_ON_HEAP;
++		} else {
++			return EINVAL;
++		}
++	}
++
+ 	pthread_mutex_lock(&pthread_pool_lock);
+ 	for (pthread_num = 0;
+ 	    pthread_num < CONFIG_MAX_PTHREAD_COUNT; pthread_num++) {
+@@ -158,10 +195,14 @@ int pthread_create(pthread_t *newthread, const pthread_attr_t *attr,
+ 	pthread_mutex_unlock(&pthread_pool_lock);
+ 
+ 	if (pthread_num >= CONFIG_MAX_PTHREAD_COUNT) {
++		if (IS_ENABLED(CONFIG_PTHREAD_DYNAMIC_STACK)
++			&& dynamic_stack != NULL) {
++			free(dynamic_stack);
++		}
+ 		return EAGAIN;
+ 	}
+ 
+-	prio = posix_to_zephyr_priority(attr->priority, attr->schedpolicy);
++	prio = posix_to_zephyr_priority(mattr->priority, mattr->schedpolicy);
+ 
+ 	thread = &posix_thread_pool[pthread_num];
+ 	/*
+@@ -172,25 +213,25 @@ int pthread_create(pthread_t *newthread, const pthread_attr_t *attr,
+ 	(void)pthread_mutex_init(&thread->cancel_lock, NULL);
+ 
+ 	pthread_mutex_lock(&thread->cancel_lock);
+-	thread->cancel_state = (1 << _PTHREAD_CANCEL_POS) & attr->flags;
++	thread->cancel_state = (1 << _PTHREAD_CANCEL_POS) & mattr->flags;
+ 	thread->cancel_pending = 0;
+ 	pthread_mutex_unlock(&thread->cancel_lock);
+ 
+ 	pthread_mutex_lock(&thread->state_lock);
+-	thread->state = attr->detachstate;
++	thread->state = mattr->detachstate;
+ 	pthread_mutex_unlock(&thread->state_lock);
+ 
+ 	pthread_cond_init(&thread->state_cond, &cond_attr);
+ 	sys_slist_init(&thread->key_list);
+ 
+-	*newthread = (pthread_t) k_thread_create(&thread->thread, attr->stack,
+-						 attr->stacksize,
++	*newthread = (pthread_t) k_thread_create(&thread->thread, mattr->stack,
++						 mattr->stacksize,
+ 						 (k_thread_entry_t)
+ 						 zephyr_thread_wrapper,
+-						 (void *)arg, NULL,
++						 (void *)arg, dynamic_stack,
+ 						 threadroutine, prio,
+-						 (~K_ESSENTIAL & attr->flags),
+-						 K_MSEC(attr->delayedstart));
++						 (~K_ESSENTIAL & mattr->flags),
++						 K_MSEC(mattr->delayedstart));
+ 	return 0;
+ }
+ 
+@@ -347,6 +388,23 @@ int pthread_once(pthread_once_t *once, void (*init_func)(void))
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_PTHREAD_DYNAMIC_STACK
++static void zephyr_pthread_stack_reclaim(struct k_thread *thread)
++{
++	uint8_t *p = (uint8_t *)thread->stack_info.start;
++
++	p -= thread->stack_info.delta;
++	memset((void *)thread->stack_info.start, 0,
++		thread->stack_info.size);
++	k_free(p);
++}
++#else
++static inline void zephyr_pthread_stack_reclaim(struct k_thread *thread)
++{
++	ARG_UNUSED(thread);
++}
++#endif
++
+ /**
+  * @brief Terminate calling thread.
+  *
+@@ -385,6 +443,10 @@ void pthread_exit(void *retval)
+ 		}
+ 	}
+ 
++	if ((self->thread.base.user_options & K_STACK_ON_HEAP) != 0) {
++		self->thread.fn_abort = zephyr_pthread_stack_reclaim;
++	}
++
+ 	pthread_mutex_unlock(&self->state_lock);
+ 	k_thread_abort((k_tid_t)self);
+ }
+@@ -534,6 +596,21 @@ int pthread_attr_setschedpolicy(pthread_attr_t *attr, int policy)
+ 	return 0;
+ }
+ 
++/**
++ * @brief Set stack size attribute in thread attributes object.
++ *
++ * See IEEE 1003.1
++ */
++int pthread_attr_setstacksize(pthread_attr_t *attr, size_t stacksize)
++{
++	if ((attr == NULL) || (attr->initialized == 0U)) {
++		return EINVAL;
++	}
++
++	attr->stacksize = stacksize;
++	return 0;
++}
++
+ /**
+  * @brief Get stack size attribute in thread attributes object.
+  *
+diff --git a/tests/posix/common/prj.conf b/tests/posix/common/prj.conf
+index f01ae5140a96..1f98f40157c7 100644
+--- a/tests/posix/common/prj.conf
++++ b/tests/posix/common/prj.conf
+@@ -4,8 +4,13 @@ CONFIG_MAX_PTHREAD_COUNT=20
+ CONFIG_ZTEST=y
+ CONFIG_SEM_VALUE_MAX=32767
+ CONFIG_POSIX_MQUEUE=y
+-CONFIG_HEAP_MEM_POOL_SIZE=4096
++# increased since pthread_create calls k_malloc() with dynamic stacks
++CONFIG_HEAP_MEM_POOL_SIZE=16384
++CONFIG_MINIMAL_LIBC_MALLOC_ARENA_SIZE=16384
+ CONFIG_MAX_THREAD_BYTES=4
+ CONFIG_THREAD_NAME=y
+ 
+ CONFIG_SMP=n
++
++# increased since idle calls k_free() with dynamic stacks
++CONFIG_IDLE_STACK_SIZE=768
+diff --git a/tests/posix/common/src/main.c b/tests/posix/common/src/main.c
+index 1637a19e891d..e370fbd673bf 100644
+--- a/tests/posix/common/src/main.c
++++ b/tests/posix/common/src/main.c
+@@ -19,6 +19,7 @@ extern void test_posix_pthread_execution(void);
+ extern void test_posix_pthread_termination(void);
+ extern void test_posix_multiple_threads_single_key(void);
+ extern void test_posix_single_thread_multiple_keys(void);
++extern void test_posix_thread_attr_stacksize(void);
+ extern void test_nanosleep_NULL_NULL(void);
+ extern void test_nanosleep_NULL_notNULL(void);
+ extern void test_nanosleep_notNULL_NULL(void);
+@@ -42,6 +43,7 @@ void test_main(void)
+ 			ztest_unit_test(test_posix_pthread_termination),
+ 			ztest_unit_test(test_posix_multiple_threads_single_key),
+ 			ztest_unit_test(test_posix_single_thread_multiple_keys),
++			ztest_unit_test(test_posix_thread_attr_stacksize),
+ 			ztest_unit_test(test_posix_clock),
+ 			ztest_unit_test(test_posix_semaphore),
+ 			ztest_unit_test(test_posix_normal_mutex),
+diff --git a/tests/posix/common/src/pthread.c b/tests/posix/common/src/pthread.c
+index da46c3afb254..eae02fe4249f 100644
+--- a/tests/posix/common/src/pthread.c
++++ b/tests/posix/common/src/pthread.c
+@@ -214,6 +214,9 @@ void *thread_top_term(void *p1)
+ 	}
+ 
+ 	if (id >= 2) {
++		if (IS_ENABLED(CONFIG_PTHREAD_DYNAMIC_STACK)) {
++			zassert_false(pthread_detach(self), "failed to set detach state");
++		}
+ 		ret = pthread_detach(self);
+ 		if (id == 2) {
+ 			zassert_equal(ret, EINVAL, "re-detached thread!");
+@@ -301,18 +304,20 @@ void test_posix_pthread_execution(void)
+ 	ret = pthread_setname_np(NULL, thr_name);
+ 	zassert_equal(ret, ESRCH, "uninitialized setname!");
+ 
+-	/* TESTPOINT: Try creating thread before attr init */
+-	ret = pthread_create(&newthread[0], &attr[0],
+-				thread_top_exec, NULL);
+-	zassert_equal(ret, EINVAL, "thread created before attr init!");
++	if (!IS_ENABLED(CONFIG_PTHREAD_DYNAMIC_STACK)) {
++		/*  TESTPOINT: Try creating thread before attr init */
++		ret = pthread_create(&newthread[0], &attr[0],
++					thread_top_exec, NULL);
++		zassert_equal(ret, EINVAL, "thread created before attr init!");
++	}
+ 
+ 	for (i = 0; i < N_THR_E; i++) {
+ 		ret = pthread_attr_init(&attr[i]);
+ 		if (ret != 0) {
+ 			zassert_false(pthread_attr_destroy(&attr[i]),
+-				      "Unable to destroy pthread object attrib");
++					  "Unable to destroy pthread object attrib");
+ 			zassert_false(pthread_attr_init(&attr[i]),
+-				      "Unable to create pthread object attrib");
++					  "Unable to create pthread object attrib");
+ 		}
+ 
+ 		/* TESTPOINTS: Retrieve set stack attributes and compare */
+@@ -333,11 +338,16 @@ void test_posix_pthread_execution(void)
+ 		pthread_attr_setschedparam(&attr[i], &schedparam);
+ 		pthread_attr_getschedparam(&attr[i], &getschedparam);
+ 		zassert_equal(schedparam.sched_priority,
+-			      getschedparam.sched_priority,
+-			      "scheduling priorities do not match!");
++				  getschedparam.sched_priority,
++				  "scheduling priorities do not match!");
+ 
+-		ret = pthread_create(&newthread[i], &attr[i], thread_top_exec,
+-				INT_TO_POINTER(i));
++		if (IS_ENABLED(CONFIG_PTHREAD_DYNAMIC_STACK)) {
++			ret = pthread_create(&newthread[i], NULL, thread_top_exec,
++					INT_TO_POINTER(i));
++		} else {
++			ret = pthread_create(&newthread[i], &attr[i], thread_top_exec,
++					INT_TO_POINTER(i));
++		}
+ 
+ 		/* TESTPOINT: Check if thread is created successfully */
+ 		zassert_false(ret, "Number of threads exceed max limit");
+@@ -429,8 +439,13 @@ void test_posix_pthread_termination(void)
+ 		schedparam.sched_priority = 2;
+ 		pthread_attr_setschedparam(&attr[i], &schedparam);
+ 		pthread_attr_setstack(&attr[i], &stack_t[i][0], STACKS);
+-		ret = pthread_create(&newthread[i], &attr[i], thread_top_term,
+-				     INT_TO_POINTER(i));
++		if (IS_ENABLED(CONFIG_PTHREAD_DYNAMIC_STACK)) {
++			ret = pthread_create(&newthread[i], NULL, thread_top_term,
++						INT_TO_POINTER(i));
++		} else {
++			ret = pthread_create(&newthread[i], &attr[i], thread_top_term,
++						INT_TO_POINTER(i));
++		}
+ 
+ 		zassert_false(ret, "Not enough space to create new thread");
+ 	}
+@@ -464,3 +479,29 @@ void test_posix_pthread_termination(void)
+ 	ret = pthread_getschedparam(newthread[N_THR_T/2], &policy, &schedparam);
+ 	zassert_equal(ret, ESRCH, "got attr from terminated thread!");
+ }
++
++#ifdef CONFIG_PTHREAD_DYNAMIC_STACK
++static void *fun(void *arg)
++{
++	*((uint32_t *)arg) = 0xB105F00D;
++	return NULL;
++}
++
++void test_posix_thread_attr_stacksize(void)
++{
++	uint32_t x = 0;
++	pthread_attr_t attr;
++	pthread_t th;
++
++	/* TESTPOINT: specify a custom stack size via pthread_attr_t */
++	zassert_equal(0, pthread_attr_init(&attr), "");
++	zassert_equal(0, pthread_attr_setstacksize(&attr, 256), "");
++	zassert_equal(0, pthread_create(&th, &attr, fun, &x), "");
++	zassert_equal(0, pthread_join(th, NULL), "");
++	zassert_equal(0xB105F00D, x, "");
++}
++#else
++void test_posix_thread_attr_stacksize(void)
++{
++}
++#endif
+diff --git a/tests/posix/common/testcase.yaml b/tests/posix/common/testcase.yaml
+index 4f931437071f..024c42e993b3 100644
+--- a/tests/posix/common/testcase.yaml
++++ b/tests/posix/common/testcase.yaml
+@@ -36,3 +36,17 @@ tests:
+     extra_configs:
+       - CONFIG_NEWLIB_LIBC=y
+       - CONFIG_TEST_HW_STACK_PROTECTION=n
++  portability.posix.common.dynamic_stack:
++    platform_exclude: nsim_sem_mpu_stack_guard nsim_em_mpu_stack_guard
++    extra_configs:
++      - CONFIG_NEWLIB_LIBC=n
++      - CONFIG_PTHREAD_DYNAMIC_STACK=y
++      - CONFIG_IDLE_STACK_SIZE=768
++      - CONFIG_MINIMAL_LIBC_MALLOC_ARENA_SIZE=16384
++  portability.posix.common.dynamic_stack.newlib:
++    platform_exclude: nsim_sem_mpu_stack_guard nsim_em_mpu_stack_guard
++    filter: TOOLCHAIN_HAS_NEWLIB == 1
++    extra_configs:
++      - CONFIG_NEWLIB_LIBC=y
++      - CONFIG_PTHREAD_DYNAMIC_STACK=y
++      - CONFIG_IDLE_STACK_SIZE=768

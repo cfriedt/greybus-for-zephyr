@@ -1,0 +1,7 @@
+dstests:
+  subsys.greybus:
+    tags: greybus
+    depends_on: greybus spi
+    min_flash: 34
+    filter: dt_compat_enabled("test,greybus")
+    harness: ztest
