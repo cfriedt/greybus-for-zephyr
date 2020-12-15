@@ -18,14 +18,14 @@ LOG_MODULE_REGISTER(greybus_platform);
 
 struct map_entry {
 	unsigned int cport;
-	struct device *dev;
+	const struct device *dev;
 };
 
 static size_t map_size;
 static struct map_entry *map;
 K_MUTEX_DEFINE(map_mutex);
 
-int gb_add_cport_device_mapping(unsigned int cport, struct device *dev)
+int gb_add_cport_device_mapping(unsigned int cport, const struct device *dev)
 {
 	int ret;
 	int mutex_ret;
@@ -79,7 +79,7 @@ unlock:
 	return ret;
 }
 
-int gb_device_to_cport(struct device *dev)
+int gb_device_to_cport(const struct device *dev)
 {
 	int ret;
 	int mutex_ret;
@@ -107,9 +107,9 @@ unlock:
 	return ret;
 }
 
-struct device *gb_cport_to_device(unsigned int cport)
+const struct device *gb_cport_to_device(unsigned int cport)
 {
-	struct device *ret;
+	const struct device *ret;
 	int mutex_ret;
 	size_t idx;
 	struct map_entry *entry;

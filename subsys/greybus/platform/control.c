@@ -15,16 +15,15 @@ struct greybus_control_config {
     const char *bus_name;
 };
 
-static int greybus_control_init(struct device *dev) {
+static int greybus_control_init(const struct device *dev) {
 
     struct greybus_control_config *config =
         (struct greybus_control_config *)dev->config;
-    int r;
-    struct device *bus;
+    const struct device *bus;
 
     bus = device_get_binding(config->bus_name);
     if (NULL == bus) {
-		LOG_ERR("control: failed to get binding for device '%s'", config->bus_name);
+	LOG_ERR("control: failed to get binding for device '%s'", config->bus_name);
     	return -ENODEV;
     }
 
@@ -34,8 +33,8 @@ static int greybus_control_init(struct device *dev) {
     return 0;
 }
 
-extern int gb_service_defer_init(struct device *, int (*init)(struct device *));
-static int defer_greybus_control_init(struct device *dev) {
+extern int gb_service_defer_init(const struct device *, int (*init)(const struct device *));
+static int defer_greybus_control_init(const struct device *dev) {
 	return gb_service_defer_init(dev, &greybus_control_init);
 }
 

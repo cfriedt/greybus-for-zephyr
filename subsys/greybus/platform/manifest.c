@@ -26,7 +26,7 @@ int manifest_get(uint8_t **mnfb, size_t *mnfb_size)
 	int r = -ENOENT;
 
 	if (IS_ENABLED(CONFIG_GREYBUS_MANIFEST_BUILTIN)) {
-		*mnfb = greybus_manifest_builtin;
+		*mnfb = (uint8_t *)greybus_manifest_builtin;
 		*mnfb_size = sizeof(greybus_manifest_builtin);
 		r = 0;
 	}

@@ -76,16 +76,16 @@ static uint8_t gb_spi_protocol_version(struct gb_operation *operation)
     return GB_OP_SUCCESS;
 }
 
-static int device_spi_get_master_config(struct device *dev, struct gb_spi_master_config_response *response)
+static int device_spi_get_master_config(const struct device *dev, struct gb_spi_master_config_response *response)
 {
     int ret;
 
-    struct device *const gb_spidev = gb_spidev_from_zephyr_spidev(dev);
+    const struct device *gb_spidev = gb_spidev_from_zephyr_spidev(dev);
     if (gb_spidev == NULL) {
     	return -ENODEV;
     }
 
-    const struct gb_platform_spi_api *const api = gb_spidev->api;
+    const struct gb_platform_spi_api *api = gb_spidev->api;
     __ASSERT_NO_MSG(api != NULL);
 
     ret = api->controller_config_response(gb_spidev, response);
@@ -127,12 +127,12 @@ static uint8_t gb_spi_protocol_master_config(struct gb_operation *operation)
     return GB_OP_SUCCESS;
 }
 
-static int device_spi_get_device_config(struct device *dev, uint8_t cs, struct gb_spi_device_config_response *response)
+static int device_spi_get_device_config(const struct device *dev, uint8_t cs, struct gb_spi_device_config_response *response)
 {
     int ret;
 
-    struct device *const gb_spidev = gb_spidev_from_zephyr_spidev(dev);
-    struct gb_platform_spi_api *const api = (struct gb_platform_spi_api *)gb_spidev->api;
+    const struct device *gb_spidev = gb_spidev_from_zephyr_spidev(dev);
+    const struct gb_platform_spi_api *api = (struct gb_platform_spi_api *)gb_spidev->api;
     __ASSERT_NO_MSG(api != NULL);
 
     ret = api->peripheral_config_response(gb_spidev, cs, response);
@@ -186,15 +186,15 @@ static uint8_t gb_spi_protocol_device_config(struct gb_operation *operation)
 }
 
 static int request_to_spi_config(const struct gb_spi_transfer_request *const request,
-	const size_t freq, const uint8_t bits_per_word, struct device *const spi_dev, struct spi_config *const spi_config, struct spi_cs_control *ctrl)
+	const size_t freq, const uint8_t bits_per_word, const struct device *spi_dev, struct spi_config *const spi_config, struct spi_cs_control *ctrl)
 {
-    struct device *const gb_spidev = gb_spidev_from_zephyr_spidev(spi_dev);
+    const struct device *gb_spidev = gb_spidev_from_zephyr_spidev(spi_dev);
 
     if (gb_spidev == NULL) {
     	return -ENODEV;
     }
 
-    const struct gb_platform_spi_api *const api = gb_spidev->api;
+    const struct gb_platform_spi_api *api = gb_spidev->api;
     __ASSERT_NO_MSG(api != NULL);
 
     spi_config->frequency = freq;
@@ -439,7 +439,7 @@ out:
  */
 static int gb_spi_init(unsigned int cport, struct gb_bundle *bundle)
 {
-    bundle->dev = gb_cport_to_device(cport);
+    bundle->dev = (struct device *)gb_cport_to_device(cport);
     if (!bundle->dev) {
         return -EIO;
     }

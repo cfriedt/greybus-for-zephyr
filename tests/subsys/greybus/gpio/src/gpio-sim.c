@@ -17,7 +17,7 @@
  * correspondingly, as if a wire were connecting the two.
  */
 
-static void gpio_emul_callback_handler(struct device *port,
+static void gpio_emul_callback_handler(const struct device *port,
 				      struct gpio_callback *cb,
 				      gpio_port_pins_t pins)
 {
@@ -65,7 +65,7 @@ static struct gpio_callback gpio_emul_callback = {
 
 void gpio_emul_setup(void)
 {
-	struct device *dev = device_get_binding(GPIO_DEV_NAME);
+	const struct device *dev = device_get_binding(GPIO_DEV_NAME);
 	__ASSERT(dev != NULL, "Device not found");
 	int rc = gpio_add_callback(dev, &gpio_emul_callback);
 	__ASSERT(rc == 0, "gpio_add_callback() failed: %d", rc);

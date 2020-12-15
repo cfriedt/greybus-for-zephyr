@@ -17,18 +17,18 @@ LOG_MODULE_REGISTER(greybus_platform_spi_control);
 #include "transport.h"
 
 struct devpair {
-	struct device *a;
-	struct device *b;
+	const struct device *a;
+	const struct device *b;
 };
 
 static struct devpair *gb_spidev_pairs;
 static size_t gb_num_spidev_pairs;
 static K_SEM_DEFINE(gb_spidev_pairs_sem, 1, 1);
 
-struct device *gb_spidev_from_zephyr_spidev(struct device *dev)
+const struct device *gb_spidev_from_zephyr_spidev(const struct device *dev)
 {
 	int r;
-	struct device *ret;
+	const struct device *ret;
 	struct devpair *p;
 
 	r = k_sem_take(&gb_spidev_pairs_sem, K_FOREVER);
@@ -60,7 +60,7 @@ unlock:
  * @return 0 on success
  * @return a negative errno value on failure
  */
-static int gb_add_spipair(struct device *a, struct device *b)
+static int gb_add_spipair(const struct device *a, const struct device *b)
 {
 	int r;
 	struct devpair *p;
@@ -115,17 +115,17 @@ struct greybus_spi_control_config {
 };
 
 struct greybus_spi_control_data {
-    struct device *greybus_spi_controller;
+    const struct device *greybus_spi_controller;
 };
 
-static int greybus_spi_control_init(struct device *dev) {
+static int greybus_spi_control_init(const struct device *dev) {
 
 	struct greybus_spi_control_data *drv_data =
         (struct greybus_spi_control_data *)dev->data;
     struct greybus_spi_control_config *config =
         (struct greybus_spi_control_config *)dev->config;
     int r;
-    struct device *bus;
+    const struct device *bus;
 
     drv_data->greybus_spi_controller =
         device_get_binding(config->greybus_spi_controller_name);
@@ -157,12 +157,12 @@ static int greybus_spi_control_init(struct device *dev) {
     return 0;
 }
 
-extern int gb_service_defer_init(struct device *, int (*init)(struct device *));
-static int defer_greybus_spi_control_init(struct device *dev) {
+extern int gb_service_defer_init(const struct device *, int (*init)(const struct device *));
+static int defer_greybus_spi_control_init(const struct device *dev) {
 	return gb_service_defer_init(dev, &greybus_spi_control_init);
 }
 
-static int gb_plat_api_controller_config_response(struct device *dev, struct gb_spi_master_config_response *rsp)
+static int gb_plat_api_controller_config_response(const struct device *dev, struct gb_spi_master_config_response *rsp)
 {
 	if (dev == NULL || NULL == rsp) {
 		return -EINVAL;
@@ -176,7 +176,7 @@ static int gb_plat_api_controller_config_response(struct device *dev, struct gb_
 	return 0;
 }
 
-static int gb_plat_api_num_peripherals(struct device *dev)
+static int gb_plat_api_num_peripherals(const struct device *dev)
 {
 	if (dev == NULL) {
 		return -EINVAL;
@@ -188,7 +188,7 @@ static int gb_plat_api_num_peripherals(struct device *dev)
 	return config->num_peripherals;
 }
 
-static int gb_plat_api_peripheral_config_response(struct device *dev, uint8_t chip_select, struct gb_spi_device_config_response *rsp)
+static int gb_plat_api_peripheral_config_response(const struct device *dev, uint8_t chip_select, struct gb_spi_device_config_response *rsp)
 {
 	if (dev == NULL || NULL == rsp) {
 		return -EINVAL;
@@ -206,7 +206,7 @@ static int gb_plat_api_peripheral_config_response(struct device *dev, uint8_t ch
 	return 0;
 }
 
-static int gb_plat_api_get_cs_control(struct device *dev, uint8_t chip_select, struct spi_cs_control *ctrl)
+static int gb_plat_api_get_cs_control(const struct device *dev, uint8_t chip_select, struct spi_cs_control *ctrl)
 {
 	if (dev == NULL || NULL == ctrl) {
 		return -EINVAL;
@@ -221,12 +221,12 @@ static int gb_plat_api_get_cs_control(struct device *dev, uint8_t chip_select, s
 
 	/*
 	 * Slightly dirty hack.
-	 * Not currently possible in Zephyr to have a struct device * be
+	 * Not currently possible in Zephyr to have a const struct device * be
 	 * compile-time const. Instead we use the gpio_dev field to hold
 	 * a pointer to the DT_LABEL of the gpio_dev, and get an actual
-	 * struct device * at runtime */
+	 * const struct device * at runtime */
 	const char *dev_name = (const char *)config->cs_control[chip_select].gpio_dev;
-	struct device *const gpio_dev = device_get_binding(dev_name);
+	const struct device *const gpio_dev = device_get_binding(dev_name);
 	if (gpio_dev == NULL) {
 		LOG_ERR("failed to look up cs %u GPIO device for '%s'", chip_select, dev_name);
 		return -ENODEV;
