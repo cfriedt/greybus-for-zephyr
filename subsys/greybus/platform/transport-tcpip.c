@@ -44,7 +44,6 @@ extern int usleep(useconds_t usec);
 
 #include <greybus/debug.h>
 #include <greybus/greybus.h>
-#include <greybus/platform.h>
 #include <greybus-utils/manifest.h>
 #include <posix/unistd.h>
 #include <posix/pthread.h>
@@ -650,7 +649,7 @@ static const struct gb_transport_backend gb_xport = {
 	.free_buf = gb_xport_free__buf,
 };
 
-static int netsetup(int *cports, size_t num_cports)
+static int netsetup(size_t num_cports)
 {
 	int r;
 	int fd;
@@ -686,8 +685,8 @@ static int netsetup(int *cports, size_t num_cports)
             return -errno;
         }
 
-        if (!fd_context_insert(fd, cports[i], FD_CONTEXT_SERVER)) {
-        	LOG_ERR("failed to add fd context for cport %d", cports[i]);
+        if (!fd_context_insert(fd, i, FD_CONTEXT_SERVER)) {
+        	LOG_ERR("failed to add fd context for cport %d", i);
         	close(fd);
         	return -EINVAL;
         }
@@ -712,13 +711,13 @@ static int netsetup(int *cports, size_t num_cports)
         }
 
         LOG_INF("CPort %d mapped to TCP/IP port %u",
-			cports[i], GB_TRANSPORT_TCPIP_BASE_PORT + i);
+			i, GB_TRANSPORT_TCPIP_BASE_PORT + i);
     }
 
     return 0;
 }
 
-struct gb_transport_backend *gb_transport_backend_init(unsigned int *cports, size_t num_cports) {
+struct gb_transport_backend *gb_transport_backend_init(size_t num_cports) {
 
     int r;
     struct gb_transport_backend *ret = NULL;
@@ -732,7 +731,7 @@ struct gb_transport_backend *gb_transport_backend_init(unsigned int *cports, siz
         goto out;
     }
 
-    r = netsetup(cports, num_cports);
+    r = netsetup(num_cports);
     if (r < 0) {
     	LOG_ERR("netsetup() failed: %d", r);
         goto cleanup;

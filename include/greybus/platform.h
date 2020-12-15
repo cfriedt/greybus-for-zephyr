@@ -7,8 +7,6 @@
 #ifndef ZEPHYR_INCLUDE_GREYBUS_PLATFORM_H_
 #define ZEPHYR_INCLUDE_GREYBUS_PLATFORM_H_
 
-#include <greybus/manifecto/manifest.h>
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -54,19 +52,6 @@ int gb_device_to_cport(struct device *dev);
  * @return NULL on failure
  */
 struct device *gb_cport_to_device(unsigned int cport);
-
-struct gb_transport_backend;
-struct greybus_platform_api {
-	int (*add_interface)(struct device *bus, uint16_t vendor_string_id,
-            uint16_t product_string_id);
-	int (*add_string)(struct device *bus, uint8_t id, const char *string_);
-	int (*add_bundle)(struct device *bus, uint8_t id, BundleClass class_);
-	int (*add_cport)(struct device *bus, uint8_t id, BundleClass class_, CPortProtocol protocol);
-	int (*get_cports)(struct device *bus, unsigned int **cports, size_t *num_cports);
-	int (*gen_mnfb)(struct device *bus, uint8_t **mnfb, size_t *mnfb_size);
-	struct gb_transport_backend *(*get_transport)(struct device *bus);
-	void (*fini)(struct device *bus);
-};
 
 struct gb_spi_master_config_response;
 struct gb_spi_device_config_response;

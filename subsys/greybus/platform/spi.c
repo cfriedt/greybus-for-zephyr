@@ -132,7 +132,6 @@ static int greybus_spi_control_init(struct device *dev) {
         (struct greybus_spi_control_config *)dev->config;
     int r;
     struct device *bus;
-    struct greybus_platform_api *api;
 
     drv_data->greybus_spi_controller =
         device_get_binding(config->greybus_spi_controller_name);
@@ -150,18 +149,6 @@ static int greybus_spi_control_init(struct device *dev) {
     if (NULL == bus) {
 		LOG_ERR("spi control: failed to get binding for device '%s'", config->bus_name);
     	return -ENODEV;
-    }
-
-    api = (struct greybus_platform_api *) bus->api;
-    if (NULL == api) {
-		LOG_ERR("spi control: failed to get api for '%s'", config->bus_name);
-    	return -EINVAL;
-    }
-
-    r = api->add_cport(bus, config->id, config->bundle, CPORT_PROTOCOL_SPI);
-    if (r < 0) {
-		LOG_ERR("spi control: failed to get api for '%s'", config->bus_name);
-		return r;
     }
 
     r = gb_add_cport_device_mapping(config->id, drv_data->greybus_spi_controller);
