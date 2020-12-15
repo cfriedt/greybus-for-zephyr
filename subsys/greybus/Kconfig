@@ -16,6 +16,20 @@ menuconfig GREYBUS
 if GREYBUS
 
 choice
+	prompt "Greybus Manifest Source"
+	default GREYBUS_MANIFEST_BUILTIN
+
+config GREYBUS_MANIFEST_BUILTIN
+	bool "Compile the manifest into the application"
+	help
+	  Choosing this option generates a Greybus Manifest
+	  Source file from the unfixed DeviceTree header,
+	  converts that into a Greybus Manifest Binary file,
+	  and then generates an array in C from the binary
+	  data.
+endchoice
+
+choice
 	prompt "Which transport shall be used for Greybus?"
 	default GREYBUS_XPORT_TCPIP
 

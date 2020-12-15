@@ -1,0 +1,3 @@
+[submodule "scripts/manifesto"]
+	path = scripts/manifesto
+	url = https://github.com/cfriedt/manifesto.git

@@ -6,7 +6,6 @@
 
 #include <stdint.h>
 #include <zephyr.h>
-#include <greybus/manifecto/manifest.h>
 
 #define DT_DRV_COMPAT zephyr_greybus_bundle
 #include <device.h>
@@ -16,11 +15,9 @@
 #include <logging/log.h>
 LOG_MODULE_REGISTER(greybus_platform_bundle);
 
-#include <greybus/platform.h>
-
 struct greybus_bundle_config {
     const uint8_t id;
-    const BundleClass class_;
+    const uint16_t class_;
     const char *const bus_name;
 };
 
@@ -30,25 +27,12 @@ static int greybus_bundle_init(struct device *dev) {
 			(const struct greybus_bundle_config *)dev->config;
 
 	int r;
-	struct greybus_platform_api *api;
 	struct device *bus;
 
 	bus = device_get_binding(config->bus_name);
 	if (NULL == bus) {
 		LOG_ERR("greybus bundle: failed to get binding for device '%s'", config->bus_name);
 		return -ENODEV;
-	}
-
-	api = (struct greybus_platform_api *)bus->api;
-	if (NULL == api) {
-		LOG_ERR("greybus bundle: failed to get api for device '%s'", config->bus_name);
-		return -EINVAL;
-	}
-
-	r = api->add_bundle(bus, config->id, config->class_);
-	if (r < 0) {
-		LOG_ERR("greybus bundle: add_bundle() failed: %d", r);
-		return r;
 	}
 
 	LOG_DBG("probed greybus bundle %u: class: %u", config->id, config->class_);
