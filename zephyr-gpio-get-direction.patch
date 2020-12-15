@@ -49,7 +49,7 @@ index 44f893a615..43fbf7d01e 100644
 + * @param pin Pin number to query the direction of
 + * @return the direction of the pin
 + */
-+static inline bool gpio_pin_get_direction(struct device *port, gpio_pin_t pin)
++static inline bool gpio_pin_get_direction(const struct device *port, gpio_pin_t pin)
 +{
 +	const struct gpio_driver_config *const cfg =
 +		(const struct gpio_driver_config *)port->config;

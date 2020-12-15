@@ -160,7 +160,7 @@ static int gb_i2c_init(unsigned int cport, struct gb_bundle *bundle)
 {
 	__ASSERT_NO_MSG(bundle != NULL);
 
-    bundle->dev = gb_cport_to_device(cport);
+    bundle->dev = (struct device *)gb_cport_to_device(cport);
     if (!bundle->dev) {
         return -EIO;
     }

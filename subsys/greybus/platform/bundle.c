@@ -21,13 +21,12 @@ struct greybus_bundle_config {
     const char *const bus_name;
 };
 
-static int greybus_bundle_init(struct device *dev) {
+static int greybus_bundle_init(const struct device *dev) {
 
 	const struct greybus_bundle_config *const config =
 			(const struct greybus_bundle_config *)dev->config;
 
-	int r;
-	struct device *bus;
+	const struct device *bus;
 
 	bus = device_get_binding(config->bus_name);
 	if (NULL == bus) {
@@ -40,8 +39,8 @@ static int greybus_bundle_init(struct device *dev) {
     return 0;
 }
 
-extern int gb_service_defer_init(struct device *, int (*init)(struct device *));
-static int defer_greybus_bundle_init(struct device *dev) {
+extern int gb_service_defer_init(const struct device *, int (*init)(const struct device *));
+static int defer_greybus_bundle_init(const struct device *dev) {
 	return gb_service_defer_init(dev, &greybus_bundle_init);
 }
 

@@ -20,11 +20,10 @@ struct greybus_config {
     const uint8_t version_minor;
 };
 
-static int greybus_init(struct device *bus) {
+static int greybus_init(const struct device *bus) {
 
 	const struct greybus_config *const config =
 			(const struct greybus_config *)bus->config;
-	int r;
 
 	LOG_DBG("probed greybus: %u major: %u minor: %u",
 		config->id, config->version_major, config->version_minor);

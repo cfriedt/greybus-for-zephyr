@@ -85,9 +85,10 @@ void test_greybus_setup(void) {
 
 	*port = htons(PORT);
 
-    greybus_service_init();
+	extern int greybus_service_init(const struct device *);
+	greybus_service_init(NULL);
 
-	gpio_dev = device_get_binding(GPIO_DEV_NAME);
+	gpio_dev = (struct device *)device_get_binding(GPIO_DEV_NAME);
 	zassert_not_equal(gpio_dev, NULL, "failed to get device binding for " GPIO_DEV_NAME);
 
     r = socket(family, SOCK_STREAM, 0);
@@ -434,7 +435,7 @@ void test_greybus_gpio_get_value(void)
      * we will subsequently read
      */
     if (gpio_dev == NULL) {
-        gpio_dev = device_get_binding(GPIO_DEV_NAME);
+        gpio_dev = (struct device *)device_get_binding(GPIO_DEV_NAME);
         zassert_not_equal(gpio_dev, NULL, "failed to get device binding for " GPIO_DEV_NAME);
     }
     r = gpio_pin_set(gpio_dev, GPIO_PIN_OUT, 1);
