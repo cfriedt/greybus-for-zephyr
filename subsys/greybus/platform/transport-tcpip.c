@@ -20,6 +20,9 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+/* For some reason, not declared even with _GNU_SOURCE */
+extern int pthread_setname_np(pthread_t thread, const char *name);
+
 /* For some reason, including <net/net_ip.h> breaks everything
  * I only need these */
 static inline struct sockaddr_in *net_sin(struct sockaddr *sa)
@@ -647,7 +650,7 @@ static int netsetup(size_t num_cports)
 {
 	int r;
 	int fd;
-    size_t i;
+	size_t i;
 	const int yes = true;
 	int family;
 	uint16_t *port;
@@ -680,7 +683,7 @@ static int netsetup(size_t num_cports)
         }
 
         if (!fd_context_insert(fd, i, FD_CONTEXT_SERVER)) {
-        	LOG_ERR("failed to add fd context for cport %d", i);
+        	LOG_ERR("failed to add fd context for cport %zu", i);
         	close(fd);
         	return -EINVAL;
         }
@@ -704,7 +707,7 @@ static int netsetup(size_t num_cports)
             return -errno;
         }
 
-        LOG_INF("CPort %d mapped to TCP/IP port %u",
+        LOG_INF("CPort %zu mapped to TCP/IP port %zu",
 			i, GB_TRANSPORT_TCPIP_BASE_PORT + i);
     }
 

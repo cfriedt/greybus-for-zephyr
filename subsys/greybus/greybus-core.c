@@ -47,9 +47,15 @@
     || defined(CONFIG_BOARD_NRF52_BSIM)
 #include <pthread.h>
 #include <semaphore.h>
+/* For some reason, not declared even with _GNU_SOURCE */
+extern int pthread_setname_np(pthread_t thread, const char *name);
+
+#define DEFAULT_STACK_SIZE PTHREAD_STACK_MIN
+
 #else
 #include <posix/pthread.h>
 #include <posix/semaphore.h>
+#define DEFAULT_STACK_SIZE      CONFIG_PTHREAD_DYNAMIC_STACK_DEFAULT_SIZE
 #endif
 
 #include <stdio.h>
@@ -75,7 +81,6 @@ static int _m_clock_gettime(clockid_t clk_id, struct timespec *tp) {
 }
 #endif
 
-#define DEFAULT_STACK_SIZE      CONFIG_PTHREAD_DYNAMIC_STACK_DEFAULT_SIZE
 #define TIMEOUT_IN_MS           1000
 #define GB_PING_TYPE            0x00
 
@@ -619,13 +624,6 @@ int _gb_register_driver(unsigned int cport, int bundle_id,
     if (!driver->stack_size)
         driver->stack_size = DEFAULT_STACK_SIZE;
 
-#if defined(CONFIG_BOARD_NATIVE_POSIX_64BIT) \
-    || defined(CONFIG_BOARD_NATIVE_POSIX_32BIT) \
-    || defined(CONFIG_BOARD_NRF52_BSIM)
-
-    retval = pthread_create(&g_cport[cport].thread, NULL,
-                            gb_pending_message_worker, (void *)((intptr_t) cport));
-#else
     retval = pthread_attr_init(&thread_attr);
     if (retval) {
         LOG_ERR("pthread_attr_init() failed (%d)", retval);
@@ -637,10 +635,9 @@ int _gb_register_driver(unsigned int cport, int bundle_id,
         LOG_ERR("pthread_attr_setstacksize() failed (%d)", retval);
         goto pthread_attr_setstacksize_error;
     }
+
     retval = pthread_create(&g_cport[cport].thread, &thread_attr,
                             gb_pending_message_worker, (void *)((intptr_t) cport));
-#endif
-
     if (retval) {
         LOG_ERR("pthread_create() failed (%d)", retval);
         goto pthread_create_error;
@@ -650,13 +647,8 @@ int _gb_register_driver(unsigned int cport, int bundle_id,
 	(void)snprintf(thread_name, sizeof(thread_name), "greybus[%u]", cport);
 	(void)pthread_setname_np(g_cport[cport].thread, thread_name);
 
-#if !(defined(CONFIG_BOARD_NATIVE_POSIX_64BIT) \
-    || defined(CONFIG_BOARD_NATIVE_POSIX_32BIT) \
-    || defined(CONFIG_BOARD_NRF52_BSIM))
-
     pthread_attr_destroy(&thread_attr);
     thread_attr_ptr = NULL;
-#endif
 
     g_cport[cport].driver = driver;
 

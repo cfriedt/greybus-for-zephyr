@@ -42,7 +42,7 @@ gb_transport_get_backend(void)
 	return xport;
 }
 
-int greybus_service_init(struct device *bus)
+int greybus_service_init(const struct device *bus)
 {
     int r;
 	uint8_t *mnfb;
@@ -76,6 +76,7 @@ int greybus_service_init(struct device *bus)
 		goto out;
 	}
 
+	extern size_t manifest_get_num_cports(void);
 	num_cports = manifest_get_num_cports();
     if (num_cports == 0) {
 		LOG_ERR("no cports are defined");
