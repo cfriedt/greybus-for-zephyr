@@ -7,9 +7,7 @@
 menuconfig GREYBUS
 	bool "Greybus"
 	select PTHREAD_IPC
-	select NET_HOSTNAME_ENABLE
 	select THREAD_NAME
-	select PTHREAD_DYNAMIC_STACK
 	help
 	  This option enables Greybus support.
 
@@ -29,17 +27,72 @@ config GREYBUS_MANIFEST_BUILTIN
 	  data.
 endchoice
 
+if GREYBUS_ENABLE_TLS
+choice
+	prompt "Which transport shall be used for Greybus?"
+	default GREYBUS_TLS_BUILTIN
+	
+config GREYBUS_TLS_BUILTIN
+	bool "Compile certificates into the application"
+	help
+	  This option compiles all certificates into the application
+	  by converting the specified files into C arrays.
+	  
+	  It should be noted that this is NOT SECURE.
+endchoice
+
+if GREYBUS_TLS_BUILTIN
+config GREYBUS_TLS_BUILTIN_CA_CERT
+	string "Path to the CA certificate"
+	default "${ZEPHYR_BASE}/samples/net/sockets/echo_server/src/ca.der"
+	help
+	  The path to the Certificate Signing-Authority certificate
+
+config GREYBUS_TLS_BUILTIN_SERVER_CERT
+	string "Path to the Greybus server certificate"
+	default "${ZEPHYR_BASE}/samples/net/sockets/echo_server/src/server.der"
+	help
+	  The path to the Greybus Server certificate (public key)
+
+config GREYBUS_TLS_BUILTIN_SERVER_PRIVKEY
+	string "Path to the Greybus server private key"
+	default "${ZEPHYR_BASE}/samples/net/sockets/echo_server/src/server_privkey.der"
+	help
+	  The path to the Greybus Server private key
+
+config GREYBUS_TLS_BUILTIN_AUTHORIZED_KEYS
+	string "Semicolon-separated paths of authorized public keys"
+	default "${ZEPHYR_BASE}/samples/net/sockets/echo_client/src/echo-apps-cert.der"
+	help
+	  Similar to the way that SSH parses ~/.ssh/authorized_keys,
+	  this is a semicolon-separated list of paths to public keys
+	  of clients that are authorized to connect to the Greybus
+	  Service.
+	  
+	  Any connections that are initiated for public keys
+	  that are not in this list will be terminated immediate
+	  following authentication failure.
+endif # GREYBUS_TLS_BUILTIN
+endif # GREYBUS_ENABLE_TLS
+
 choice
 	prompt "Which transport shall be used for Greybus?"
 	default GREYBUS_XPORT_TCPIP
 
 config GREYBUS_XPORT_TCPIP
 	bool "Use the TCP/IP Transport for Greybus"
+	depends on NET_TCP
+	depends on NET_SOCKETS
+	depends on NET_SOCKETS_POSIX_NAMES
+	depends on GREYBUS_ENABLE_TLS && NET_SOCKETS_SOCKOPT_TLS
+	select NET_HOSTNAME_ENABLE
 	help
 	  This creates a TCP/IP service for Greybus.
 
 config GREYBUS_XPORT_UART
 	bool "Use the UART Transport for Greybus"
+	depends on SERIAL
+	depends on SERIAL_HAS_DRIVER
 	help
 	  This creates a thread for Greybus on a specific UART.
 
@@ -50,8 +103,8 @@ config GREYBUS_XPORT_UART_DEV
 	help
 	  This setting specifies which UART the Greybus service will use.
 endif # GREYBUS_XPORT_UART
-
 endchoice
+
 
 config GREYBUS_AUDIO
 	bool "Greybus Audio"
@@ -71,24 +124,6 @@ config GREYBUS_CONTROL
 	help
 	  Select this for a Greybus Control cport.
 
-config GREYBUS_DEBUG
-	bool "Debug Greybus"
-	default n
-	help
-	  Select this to debug Greybus.
-
-config GREYBUS_LOG_FUNC
-	bool "Greybus Debug with Function Name"
-	default n
-	help
-	  Select this option to show the function name in Greybus debug messages.
-
-config GREYBUS_LOG_FILE
-	bool "Greybus Debug with File Name"
-	default y
-	help
-	  Select this option to show the filename and line number in Greybus debug messages.
-
 config GREYBUS_GPIO
 	bool "Greybus GPIO"
 	default n
@@ -102,7 +137,7 @@ config GREYBUS_HID
 	  Select this for Greybus HID support.
 
 config GREYBUS_I2C
-	bool "Greybus I2C support"
+	bool "Greybus I2C"
 	default n
 	help
 	  Select this for Greybus I2C support.
@@ -162,7 +197,7 @@ config GREYBUS_VIBRATOR
 	  Select this for Greybus Vibrator support.
 
 module = GREYBUS
-module-str = gb
+module-str = Greybus
 source "subsys/logging/Kconfig.template.log_config"
 
 endif # GREYBUS

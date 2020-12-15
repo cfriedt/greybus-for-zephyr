@@ -1,7 +1,18 @@
 tests:
-  subsys.greybus:
-    tags: greybus
+  subsys.greybus.gpio:
+    tags: greybus gpio
     depends_on: greybus gpio
+    min_flash: 34
+    filter: dt_compat_enabled("test,greybus")
+    harness: ztest
+    harness_config:
+      fixture: gpio_loopback
+  subsys.greybus.gpio.tls:
+    tags: greybus gpio tls
+    depends_on: greybus gpio tls
+    extra_configs:
+      - CONFIG_GREYBUS_ENABLE_TLS=y
+      - CONFIG_GREYBUS_TLS_BUILTIN=y
     min_flash: 34
     filter: dt_compat_enabled("test,greybus")
     harness: ztest

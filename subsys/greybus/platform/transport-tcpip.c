@@ -63,6 +63,7 @@ int usleep(useconds_t usec) {
 LOG_MODULE_REGISTER(greybus_transport_tcpip, LOG_LEVEL_INF);
 
 #include "transport.h"
+#include "certificate.h"
 
 /* Based on UniPro, from Linux */
 #define CPORT_ID_MAX 4095
@@ -654,8 +655,13 @@ static int netsetup(size_t num_cports)
 	const int yes = true;
 	int family;
 	uint16_t *port;
+	int proto = 0;
 	struct sockaddr sa;
 	socklen_t sa_len;
+
+	if (IS_ENABLED(CONFIG_GREYBUS_TLS_BUILTIN)) {
+		proto = IPPROTO_TLS_1_2;
+	}
 
 	if (IS_ENABLED(CONFIG_NET_IPV6)) {
 		family = AF_INET6;
@@ -676,7 +682,7 @@ static int netsetup(size_t num_cports)
 	*port = htons(GB_TRANSPORT_TCPIP_BASE_PORT);
 
     for(i = 0; i < num_cports; ++i) {
-        fd = socket(family, SOCK_STREAM, 0);
+        fd = socket(family, SOCK_STREAM, proto);
         if (fd == -1) {
             LOG_ERR("socket: %d", errno);
             return -errno;
@@ -690,9 +696,30 @@ static int netsetup(size_t num_cports)
 
         r = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
         if (-1 == r) {
-            LOG_ERR("setsockopt: %d", errno);
+        	LOG_ERR("setsockopt: Failed to set SO_REUSEADDR (%d)", errno);
             return -errno;
         }
+
+    	if (IS_ENABLED(CONFIG_GREYBUS_TLS_BUILTIN)) {
+    		const char host[] = { CONFIG_NET_HOSTNAME };
+    		sec_tag_t sec_tag_opt[] = {
+    				GB_TLS_CA_CERT_TAG,
+    				GB_TLS_SERVER_CERT_TAG,
+    				GB_TLS_SERVER_PRIVKEY_TAG,
+    		};
+
+    		r = setsockopt(fd, SOL_TLS, TLS_SEC_TAG_LIST, sec_tag_opt, sizeof(sec_tag_opt));
+    		if (-1 == r) {
+    			LOG_ERR("setsockopt: Failed to set SEC_TAG_LIST (%d)", errno);
+    			return -errno;
+    		}
+
+    		r = setsockopt(fd, SOL_TLS, TLS_HOSTNAME, host, sizeof(host) - 1);
+    		if (-1 == r) {
+    			LOG_ERR("setsockopt: Failed to set TLS_HOSTNAME (%d)", errno);
+    			return -errno;
+    		}
+    	}
 
     	*port = htons(GB_TRANSPORT_TCPIP_BASE_PORT + i);
         r = bind(fd, &sa, sa_len);
