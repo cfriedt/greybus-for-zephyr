@@ -7,6 +7,7 @@
 #include <drivers/gpio.h>
 #include <dt-bindings/greybus/greybus.h>
 #include <greybus/greybus.h>
+#include <greybus/platform.h>
 #include <stdint.h>
 #include <sys/byteorder.h>
 #include <zephyr.h>
@@ -29,11 +30,11 @@ struct greybus_gpio_control_config {
 };
 
 struct greybus_gpio_control_data {
-    struct device *greybus_gpio_controller;
+    const struct device *greybus_gpio_controller;
     struct gpio_callback callback;
 };
 
-static void gpio_callback_handler(struct device *port,
+static void gpio_callback_handler(const struct device *port,
 					struct gpio_callback *cb,
 					gpio_port_pins_t pins)
 {
@@ -83,14 +84,14 @@ static void gpio_callback_handler(struct device *port,
 	}
 }
 
-static int greybus_gpio_control_init(struct device *dev) {
+static int greybus_gpio_control_init(const struct device *dev) {
 
 	struct greybus_gpio_control_data *drv_data =
         (struct greybus_gpio_control_data *)dev->data;
     struct greybus_gpio_control_config *config =
         (struct greybus_gpio_control_config *)dev->config;
     int r;
-    struct device *bus;
+    const struct device *bus;
     gpio_port_pins_t mask;
 
     drv_data->greybus_gpio_controller =
@@ -130,8 +131,8 @@ static int greybus_gpio_control_init(struct device *dev) {
     return 0;
 }
 
-extern int gb_service_defer_init(struct device *, int (*init)(struct device *));
-static int defer_greybus_gpio_control_init(struct device *dev) {
+extern int gb_service_defer_init(const struct device *, int (*init)(const struct device *));
+static int defer_greybus_gpio_control_init(const struct device *dev) {
 	return gb_service_defer_init(dev, &greybus_gpio_control_init);
 }
 
