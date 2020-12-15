@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
+include(../../cmake/greybus.cmake)
+
 zephyr_include_directories(../../../include)
 
 zephyr_library()
@@ -10,7 +12,6 @@ zephyr_library_sources(
 	greybus-manifest.c
 
 	platform/manifest.c
-	platform/manifest-generator.c
 	platform/platform.c
 	platform/deferred-init.c
 
@@ -24,6 +25,25 @@ zephyr_library_sources(
 
 	qsort.c
 )
+
+if(${CONFIG_GREYBUS_MANIFEST_BUILTIN})
+
+  devicetree_unfixed_h_to_mnfs(
+	${PROJECT_BINARY_DIR}/include/generated/devicetree_unfixed.h
+	${PROJECT_BINARY_DIR}/include/generated/greybus.mnfs
+    )
+
+  mnfs_to_mnfb(
+	${PROJECT_BINARY_DIR}/include/generated/greybus.mnfs
+	${PROJECT_BINARY_DIR}/include/generated/greybus.mnfb
+	)
+
+  generate_inc_file_for_target(
+	app
+	${PROJECT_BINARY_DIR}/include/generated/greybus.mnfb
+	${PROJECT_BINARY_DIR}/include/generated/greybus_mnfb.inc
+    )
+endif()
 
 zephyr_library_sources_ifdef(CONFIG_GREYBUS_XPORT_TCPIP    platform/transport-tcpip.c)
 zephyr_library_sources_ifdef(CONFIG_GREYBUS_XPORT_UART     platform/transport-uart.c)

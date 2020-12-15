@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2020 Friedt Professional Engineering Services, Inc
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #include <device.h>
 #include <init.h>
 #include <greybus/greybus.h>
@@ -14,6 +20,7 @@
 LOG_MODULE_REGISTER(greybus_service);
 
 #include "transport.h"
+#include "manifest.h"
 
 /* Currently only one greybus instance is supported */
 #define GREYBUS_BUS_NAME "GREYBUS_0"
@@ -38,7 +45,6 @@ gb_transport_get_backend(void)
 int greybus_service_init(struct device *bus)
 {
     int r;
-	struct greybus_platform_api *api;
 	uint8_t *mnfb;
 	size_t mnfb_size;
     unsigned int *cports = NULL;
@@ -57,47 +63,32 @@ int greybus_service_init(struct device *bus)
 		goto out;
 	}
 
-	api = (struct greybus_platform_api *) bus->api;
-	if (NULL == api) {
-		LOG_ERR("failed to get " GREYBUS_BUS_NAME " api");
-		goto out;
-	}
-
-	r = api->get_cports(bus, &cports, &num_cports);
+	r = manifest_get(&mnfb, &mnfb_size);
 	if (r < 0) {
-		LOG_ERR("failed to get cports");
+		LOG_ERR("failed to get mnfb");
 		goto out;
 	}
 
+	r = manifest_parse(mnfb, mnfb_size);
+	if (r != true) {
+		LOG_ERR("failed to parse mnfb");
+		r = -EINVAL;
+		goto out;
+	}
+
+	num_cports = manifest_get_num_cports();
     if (num_cports == 0) {
 		LOG_ERR("no cports are defined");
         r = -EINVAL;
 		goto out;
     }
 
-    xport = gb_transport_backend_init(cports, num_cports);
+    xport = gb_transport_backend_init(num_cports);
     if (xport == NULL) {
         LOG_ERR("failed to get transport");
         r = -EIO;
         goto out;
     }
-
-    /* take ownership of the dynamically allocated mnfb */
-    r = api->gen_mnfb(bus, &mnfb, &mnfb_size);
-    if (r < 0) {
-        LOG_ERR("failed to generate mnfb: %d", r);
-        goto out;
-    }
-
-    /* ok to release resources from the manifest IR */
-    api->fini(bus);
-
-	r = manifest_parse(mnfb, mnfb_size);
-	if (r != true) {
-		LOG_ERR("failed to parse mnfb");
-		r = -EINVAL;
-        goto free_mnfb;
-	}
 
     set_manifest_blob(mnfb);
 
@@ -116,11 +107,6 @@ int greybus_service_init(struct device *bus)
 
 clear_mnfb:
     set_manifest_blob(NULL);
-
-free_mnfb:
-    free(mnfb);
-    mnfb = NULL;
-    mnfb_size = 0;
 
 out:
     if (cports != NULL) {

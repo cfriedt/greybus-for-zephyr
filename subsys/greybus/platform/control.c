@@ -9,8 +9,6 @@
 #include <logging/log.h>
 LOG_MODULE_REGISTER(greybus_platform_control);
 
-#include <greybus/platform.h>
-
 struct greybus_control_config {
     const uint8_t id;
     const uint8_t bundle;
@@ -23,24 +21,11 @@ static int greybus_control_init(struct device *dev) {
         (struct greybus_control_config *)dev->config;
     int r;
     struct device *bus;
-    struct greybus_platform_api *api;
 
     bus = device_get_binding(config->bus_name);
     if (NULL == bus) {
 		LOG_ERR("control: failed to get binding for device '%s'", config->bus_name);
     	return -ENODEV;
-    }
-
-    api = (struct greybus_platform_api *) bus->api;
-    if (NULL == api) {
-		LOG_ERR("control: failed to get api for '%s'", config->bus_name);
-    	return -EINVAL;
-    }
-
-    r = api->add_cport(bus, config->id, config->bundle, CPORT_PROTOCOL_CONTROL);
-    if (r < 0) {
-		LOG_ERR("control: failed to get api for '%s'", config->bus_name);
-		return r;
     }
 
     LOG_DBG("probed cport %u: bundle: %u protocol: %u", config->id,

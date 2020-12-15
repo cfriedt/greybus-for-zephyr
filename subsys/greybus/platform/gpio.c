@@ -1,7 +1,6 @@
 #include <drivers/gpio.h>
 #include <dt-bindings/greybus/greybus.h>
 #include <greybus/greybus.h>
-#include <greybus/platform.h>
 #include <stdint.h>
 #include <sys/byteorder.h>
 #include <zephyr.h>
@@ -86,7 +85,6 @@ static int greybus_gpio_control_init(struct device *dev) {
         (struct greybus_gpio_control_config *)dev->config;
     int r;
     struct device *bus;
-    struct greybus_platform_api *api;
     gpio_port_pins_t mask;
 
     drv_data->greybus_gpio_controller =
@@ -104,18 +102,6 @@ static int greybus_gpio_control_init(struct device *dev) {
     if (NULL == bus) {
 		LOG_ERR("gpio control: failed to get binding for device '%s'", config->bus_name);
     	return -ENODEV;
-    }
-
-    api = (struct greybus_platform_api *) bus->api;
-    if (NULL == api) {
-		LOG_ERR("gpio control: failed to get api for '%s'", config->bus_name);
-    	return -EINVAL;
-    }
-
-    r = api->add_cport(bus, config->id, config->bundle, CPORT_PROTOCOL_GPIO);
-    if (r < 0) {
-		LOG_ERR("gpio control: failed to get api for '%s'", config->bus_name);
-		return r;
     }
 
     r = gb_add_cport_device_mapping(config->id, drv_data->greybus_gpio_controller);

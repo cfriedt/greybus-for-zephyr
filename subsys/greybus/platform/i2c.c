@@ -1,7 +1,6 @@
 #include <drivers/i2c.h>
 #include <dt-bindings/greybus/greybus.h>
 #include <greybus/greybus.h>
-#include <greybus/platform.h>
 #include <stdint.h>
 #include <sys/byteorder.h>
 #include <zephyr.h>
@@ -35,7 +34,6 @@ static int greybus_i2c_control_init(struct device *dev) {
         (struct greybus_i2c_control_config *)dev->config;
     int r;
     struct device *bus;
-    struct greybus_platform_api *api;
 
     drv_data->greybus_i2c_controller =
         device_get_binding(config->greybus_i2c_controller_name);
@@ -49,18 +47,6 @@ static int greybus_i2c_control_init(struct device *dev) {
     if (NULL == bus) {
 		LOG_ERR("i2c control: failed to get binding for device '%s'", config->bus_name);
     	return -ENODEV;
-    }
-
-    api = (struct greybus_platform_api *) bus->api;
-    if (NULL == api) {
-		LOG_ERR("i2c control: failed to get api for '%s'", config->bus_name);
-    	return -EINVAL;
-    }
-
-    r = api->add_cport(bus, config->id, config->bundle, CPORT_PROTOCOL_I2C);
-    if (r < 0) {
-		LOG_ERR("i2c control: failed to get api for '%s'", config->bus_name);
-		return r;
     }
 
     r = gb_add_cport_device_mapping(config->id, drv_data->greybus_i2c_controller);

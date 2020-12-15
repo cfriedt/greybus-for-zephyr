@@ -10,8 +10,6 @@
 #include <logging/log.h>
 LOG_MODULE_REGISTER(greybus_platform_interface);
 
-#include <greybus/platform.h>
-
 struct greybus_interface_config {
 	const uint8_t num;
 	const uint16_t vendor_string_id;
@@ -25,25 +23,12 @@ static int greybus_interface_init(struct device *dev) {
 		(struct greybus_interface_config *)dev->config;
 
 	struct device *bus;
-	struct greybus_platform_api *api;
 	int r;
 
 	bus = device_get_binding(config->bus_name);
 	if (NULL == bus) {
 		LOG_ERR("failed to get binding for device '%s'", config->bus_name);
 		return -ENODEV;
-	}
-
-	api = (struct greybus_platform_api *)bus->api;
-	if (NULL == api) {
-		LOG_ERR("failed to get api for device '%s'", config->bus_name);
-		return -EINVAL;
-	}
-
-	r = api->add_interface(bus, config->vendor_string_id, config->product_string_id);
-	if (r < 0) {
-		LOG_ERR("add_interface() failed: %d", r);
-		return r;
 	}
 
 	LOG_DBG("probed greybus interface %u", config->num);

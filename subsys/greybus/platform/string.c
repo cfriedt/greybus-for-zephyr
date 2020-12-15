@@ -8,8 +8,6 @@
 #include <logging/log.h>
 LOG_MODULE_REGISTER(greybus_platform_string);
 
-#include <greybus/platform.h>
-
 struct greybus_string_config {
     const uint16_t id;
     const char *const string_;
@@ -21,25 +19,12 @@ static int greybus_string_init(struct device *dev) {
 			(const struct greybus_string_config *)dev->config;
 
 	struct device *bus;
-	struct greybus_platform_api *api;
 	int r;
 
 	bus = device_get_binding(config->bus_name);
 	if (NULL == bus) {
 		LOG_ERR("greybus string: device_get_binding() failed for '%s'", config->bus_name);
 		return -EAGAIN;
-	}
-
-	api = (struct greybus_platform_api *)bus->api;
-	if (NULL == api) {
-		LOG_ERR("greybus string: api was NULL");
-		return -EINVAL;
-	}
-
-	r = api->add_string(bus, config->id, config->string_);
-	if (r < 0) {
-		LOG_ERR("greybus string: add_string() failed: %d", r);
-		return r;
 	}
 
 	LOG_DBG("probed greybus string %u: %s", config->id, config->string_);
