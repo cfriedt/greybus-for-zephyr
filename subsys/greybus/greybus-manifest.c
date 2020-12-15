@@ -474,6 +474,18 @@ struct list_head *get_manifest_cports(void)
     return &g_greybus.cports;
 }
 
+size_t manifest_get_num_cports(void)
+{
+	size_t r = 0;
+	struct list_head *iter;
+
+	list_foreach(&g_greybus.cports, iter) {
+		r++;
+	}
+
+	return r;
+}
+
 int get_manifest_size(void)
 {
     struct greybus_manifest_header *mh = get_manifest_blob();
