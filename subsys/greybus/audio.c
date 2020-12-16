@@ -45,10 +45,12 @@
 //#include <list.h>
 #include <greybus/types.h>
 #include <greybus/greybus.h>
-#include <greybus/debug.h>
 #include <unipro/unipro.h>
 
 #include <sys/byteorder.h>
+
+#include <logging/log.h>
+LOG_MODULE_REGISTER(greybus_audio, CONFIG_GREYBUS_LOG_LEVEL);
 
 #include "audio-gb.h"
 
@@ -289,7 +291,7 @@ static uint8_t gb_audio_get_control_handler(struct gb_operation *operation)
     int ret;
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -320,7 +322,7 @@ static uint8_t gb_audio_set_control_handler(struct gb_operation *operation)
     int ret;
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -346,7 +348,7 @@ static uint8_t gb_audio_enable_widget_handler(struct gb_operation *operation)
     int ret;
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -371,7 +373,7 @@ static uint8_t gb_audio_disable_widget_handler(struct gb_operation *operation)
     int ret;
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -397,7 +399,7 @@ static uint8_t gb_audio_get_pcm_handler(struct gb_operation *operation)
     struct gb_audio_dai_info *dai;
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -761,7 +763,7 @@ static uint8_t gb_audio_set_pcm_handler(struct gb_operation *operation)
     int ret;
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -809,7 +811,7 @@ static uint8_t gb_audio_set_tx_data_size_handler(struct gb_operation *operation)
     struct gb_audio_dai_info *dai;
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -851,7 +853,7 @@ static uint8_t gb_audio_get_tx_delay_handler(struct gb_operation *operation)
     int ret;
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -995,7 +997,7 @@ static uint8_t gb_audio_activate_tx_handler(struct gb_operation *operation)
     int ret;
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -1060,7 +1062,7 @@ static uint8_t gb_audio_deactivate_tx_handler(struct gb_operation *operation)
     int flags;
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -1113,7 +1115,7 @@ static uint8_t gb_audio_set_rx_data_size_handler(struct gb_operation *operation)
     struct gb_audio_dai_info *dai;
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -1155,7 +1157,7 @@ static uint8_t gb_audio_get_rx_delay_handler(struct gb_operation *operation)
     int ret;
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -1314,7 +1316,7 @@ static uint8_t gb_audio_activate_rx_handler(struct gb_operation *operation)
     int ret;
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -1377,7 +1379,7 @@ static uint8_t gb_audio_deactivate_rx_handler(struct gb_operation *operation)
     struct gb_audio_dai_info *dai;
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -1740,7 +1742,7 @@ static uint8_t gb_audio_send_data_handler(struct gb_operation *operation)
     int ret;
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 

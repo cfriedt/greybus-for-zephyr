@@ -47,9 +47,8 @@
 #include <posix/semaphore.h>
 #endif
 
-#ifdef CONFIG_GREYBUS_STATIC_MANIFEST
-#include <greybus/static-manifest.h>
-#endif
+#include <logging/log.h>
+LOG_MODULE_REGISTER(greybus_manifest, CONFIG_GREYBUS_LOG_LEVEL);
 
 #undef ALIGN
 #undef PAD
@@ -134,110 +133,110 @@ void enable_cports(void)
 
 #ifdef CONFIG_GREYBUS_CONTROL
         if (protocol == GREYBUS_PROTOCOL_CONTROL) {
-            gb_info("Registering CONTROL greybus driver.\n");
+            LOG_INF("Registering CONTROL greybus driver.");
             gb_control_register(cport_id, bundle_id);
         }
 #endif
 
 #ifdef CONFIG_GREYBUS_GPIO
         if (protocol == GREYBUS_PROTOCOL_GPIO) {
-            gb_info("Registering GPIO greybus driver.\n");
+            LOG_INF("Registering GPIO greybus driver.");
             gb_gpio_register(cport_id, bundle_id);
         }
 #endif
 
 #ifdef CONFIG_GREYBUS_I2C
         if (protocol == GREYBUS_PROTOCOL_I2C) {
-            gb_info("Registering I2C greybus driver.\n");
+            LOG_INF("Registering I2C greybus driver.");
             gb_i2c_register(cport_id, bundle_id);
         }
 #endif
 
 #ifdef CONFIG_GREYBUS_POWER_SUPPLY
         if (protocol == GREYBUS_PROTOCOL_POWER_SUPPLY) {
-            gb_info("Registering POWER_SUPPLY greybus driver.\n");
+            LOG_INF("Registering POWER_SUPPLY greybus driver.");
             gb_power_supply_register(cport_id, bundle_id);
         }
 #endif
 
 #ifdef CONFIG_GREYBUS_LOOPBACK
         if (protocol == GREYBUS_PROTOCOL_LOOPBACK) {
-            gb_info("Registering Loopback greybus driver.\n");
+            LOG_INF("Registering Loopback greybus driver.");
             gb_loopback_register(cport_id, bundle_id);
         }
 #endif
 
 #ifdef CONFIG_GREYBUS_VIBRATOR
         if (protocol == GREYBUS_PROTOCOL_VIBRATOR) {
-            gb_info("Registering VIBRATOR greybus driver.\n");
+            LOG_INF("Registering VIBRATOR greybus driver.");
             gb_vibrator_register(cport_id, bundle_id);
         }
 #endif
 
 #ifdef CONFIG_GREYBUS_USB_HOST
         if (protocol == GREYBUS_PROTOCOL_USB) {
-            gb_info("Registering USB greybus driver.\n");
+            LOG_INF("Registering USB greybus driver.");
             gb_usb_register(cport_id, bundle_id);
         }
 #endif
 
 #ifdef CONFIG_GREYBUS_PWM
         if (protocol == GREYBUS_PROTOCOL_PWM) {
-            gb_info("Registering PWM greybus driver.\n");
+            LOG_INF("Registering PWM greybus driver.");
             gb_pwm_register(cport_id, bundle_id);
         }
 #endif
 
 #ifdef CONFIG_GREYBUS_SPI
         if (protocol == GREYBUS_PROTOCOL_SPI) {
-            gb_info("Registering SPI greybus driver.\n");
+            LOG_INF("Registering SPI greybus driver.");
             gb_spi_register(cport_id, bundle_id);
         }
 #endif
 
 #ifdef CONFIG_GREYBUS_UART
         if (protocol == GREYBUS_PROTOCOL_UART) {
-            gb_info("Registering Uart greybus driver. id= %d\n", cport_id);
+            LOG_INF("Registering Uart greybus driver. id= %d", cport_id);
             gb_uart_register(cport_id, bundle_id);
         }
 #endif
 
 #ifdef CONFIG_GREYBUS_HID
         if (protocol == GREYBUS_PROTOCOL_HID) {
-            gb_info("Registering HID greybus driver. id= %d\n", cport_id);
+            LOG_INF("Registering HID greybus driver. id= %d", cport_id);
             gb_hid_register(cport_id, bundle_id);
         }
 #endif
 
 #ifdef CONFIG_GREYBUS_LIGHTS
         if (protocol == GREYBUS_PROTOCOL_LIGHTS) {
-            gb_info("Registering Lights greybus driver. id= %d\n", cport_id);
+            LOG_INF("Registering Lights greybus driver. id= %d", cport_id);
             gb_lights_register(cport_id, bundle_id);
         }
 #endif
 
 #ifdef CONFIG_GREYBUS_SDIO
         if (protocol == GREYBUS_PROTOCOL_SDIO) {
-            gb_info("Registering SDIO greybus driver.\n");
+            LOG_INF("Registering SDIO greybus driver.");
             gb_sdio_register(cport_id, bundle_id);
         }
 #endif
 
 #ifdef CONFIG_GREYBUS_CAMERA
         if (protocol == GREYBUS_PROTOCOL_CAMERA_MGMT) {
-            gb_info("Registering Camera greybus driver. id= %d\n", cport_id);
+            LOG_INF("Registering Camera greybus driver. id= %d", cport_id);
             gb_camera_register(cport_id, bundle_id);
         }
 #endif
 
 #ifdef CONFIG_GREYBUS_AUDIO
         if (protocol == GREYBUS_PROTOCOL_AUDIO_MGMT) {
-            gb_info("Registering Audio MGMT greybus driver.\n");
+            LOG_INF("Registering Audio MGMT greybus driver.");
             gb_audio_mgmt_register(cport_id, bundle_id);
         }
 
         if (protocol == GREYBUS_PROTOCOL_AUDIO_DATA) {
-            gb_info("Registering Audio DATA greybus driver.\n");
+            LOG_INF("Registering Audio DATA greybus driver.");
             gb_audio_data_register(cport_id, bundle_id);
         }
 #endif
@@ -264,13 +263,13 @@ static int identify_descriptor(struct greybus_descriptor *desc, size_t size,
     struct gb_cport *cport;
 
     if (size < sizeof(*desc_header)) {
-        gb_error("manifest too small\n");
+        LOG_ERR("manifest too small");
         return -EINVAL;         /* Must at least have header */
     }
 
     desc_size = (int)sys_le16_to_cpu(desc_header->size);
     if ((size_t) desc_size > size) {
-        gb_error("descriptor too big\n");
+        LOG_ERR("descriptor too big");
         return -EINVAL;
     }
 
@@ -303,7 +302,7 @@ static int identify_descriptor(struct greybus_descriptor *desc, size_t size,
                 cport->id = desc->cport.id;
                 cport->bundle = desc->cport.bundle;
                 cport->protocol = desc->cport.protocol_id;
-                gb_debug("cport_id = %d\n", cport->id);
+                LOG_DBG("cport_id = %d", cport->id);
             } else {
                 free_cport(desc->cport.id);
             }
@@ -311,19 +310,19 @@ static int identify_descriptor(struct greybus_descriptor *desc, size_t size,
         break;
     case GREYBUS_TYPE_INVALID:
     default:
-        gb_error("invalid descriptor type (%hhu)\n", desc_header->type);
+        LOG_ERR("invalid descriptor type (%hhu)", desc_header->type);
         return -EINVAL;
     }
 
     if (desc_size < expected_size) {
-        gb_error("%d: descriptor too small (%zu < %zu)\n",
+        LOG_ERR("%d: descriptor too small (%zu < %zu)",
                  desc_header->type, desc_size, expected_size);
         return -EINVAL;
     }
 
     /* Descriptor bigger than what we expect */
     if (desc_size > expected_size) {
-        gb_error("%d descriptor size mismatch (want %zu got %zu)\n",
+        LOG_ERR("%d descriptor size mismatch (want %zu got %zu)",
                  desc_header->type, expected_size, desc_size);
     }
 
@@ -340,21 +339,21 @@ static bool _manifest_parse(void *data, size_t size, int release)
     if (!release) {
         /* we have to have at _least_ the manifest header */
         if (size <= sizeof(manifest->header)) {
-            gb_error("short manifest (%zu)\n", size);
+            LOG_ERR("short manifest (%zu)", size);
             return false;
         }
 
         /* Make sure the size is right */
         manifest_size = sys_le16_to_cpu(header->size);
         if (manifest_size != size) {
-            gb_error("manifest size mismatch %zu != %hu\n", size,
+            LOG_ERR("manifest size mismatch %zu != %hu", size,
                      manifest_size);
             return false;
         }
 
         /* Validate major/minor number */
         if (header->version_major > GREYBUS_VERSION_MAJOR) {
-            gb_error("manifest version too new (%hhu.%hhu > %hhu.%hhu)\n",
+            LOG_ERR("manifest version too new (%hhu.%hhu > %hhu.%hhu)",
                      header->version_major, header->version_minor,
                      GREYBUS_VERSION_MAJOR, GREYBUS_VERSION_MINOR);
             return false;
@@ -450,12 +449,12 @@ void enable_manifest(char *name, void *manifest, int device_id)
         parse_manifest_blob(manifest);
         int iid = get_interface_id(name);
         if (iid > 0) {
-            gb_info("%s interface inserted\n", name);
+            LOG_INF("%s interface inserted", name);
         } else {
-            gb_error("invalid interface ID, no hotplug plug event sent\n");
+            LOG_ERR("invalid interface ID, no hotplug plug event sent");
         }
     } else {
-        gb_error("missing manifest blob, no hotplug event sent\n");
+        LOG_ERR("missing manifest blob, no hotplug event sent");
     }
 }
 

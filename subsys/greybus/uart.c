@@ -27,7 +27,6 @@
  */
 
 #include <errno.h>
-#include <debug.h>
 #include <stdlib.h>
 #include <queue.h>
 #include <stdio.h>
@@ -39,10 +38,12 @@
 #include <config.h>
 #include <greybus/types.h>
 #include <greybus/greybus.h>
-#include <greybus/debug.h>
 #include <unipro/unipro.h>
 #include <apps/greybus-utils/utils.h>
 #include <sys/byteorder.h>
+
+#include <logging/log.h>
+LOG_MODULE_REGISTER(greybus_uart, CONFIG_GREYBUS_LOG_LEVEL);
 
 #include "uart-gb.h"
 
@@ -165,10 +166,10 @@ static void uart_report_error(int error, const char *func_name)
 {
     switch (error) {
     case GB_UART_EVENT_PROTOCOL_ERROR:
-        gb_info("%s(): operation send error \n", func_name);
+        LOG_INF("%s(): operation send error ", func_name);
         break;
     case GB_UART_EVENT_DEVICE_ERROR:
-        gb_info("%s(): device io error \n", func_name);
+        LOG_INF("%s(): device io error ", func_name);
         break;
     default:
     break;
@@ -652,14 +653,14 @@ static uint8_t gb_uart_send_data(struct gb_operation *operation)
     struct gb_bundle *bundle;
 
     if (request_size < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
     size = sys_le16_to_cpu(request->size);
 
     if (request_size < sizeof(*request) + size) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -696,7 +697,7 @@ static uint8_t gb_uart_set_line_coding(struct gb_operation *operation)
     struct gb_bundle *bundle;
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -775,7 +776,7 @@ static uint8_t gb_uart_set_control_line_state(struct gb_operation *operation)
     struct gb_bundle *bundle;
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -824,7 +825,7 @@ static uint8_t gb_uart_send_break(struct gb_operation *operation)
     struct gb_bundle *bundle;
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -862,7 +863,7 @@ static int gb_uart_init(unsigned int cport, struct gb_bundle *bundle)
 
     bundle->priv = info;
 
-    gb_debug("%s(): GB uart info struct: 0x%p \n", __func__, info);
+    LOG_DBG("%s(): GB uart info struct: 0x%p ", __func__, info);
 
     info->cport = cport;
 
@@ -985,7 +986,7 @@ struct gb_driver uart_driver = {
  */
 void gb_uart_register(int cport, int bundle)
 {
-    gb_info("%s(): cport %d bundle %d\n", __func__, cport, bundle);
+    LOG_INF("%s(): cport %d bundle %d", __func__, cport, bundle);
     gb_register_driver(cport, bundle, &uart_driver);
 }
 

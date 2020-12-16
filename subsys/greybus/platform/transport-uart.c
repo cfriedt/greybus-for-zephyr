@@ -18,7 +18,7 @@
 
 #include "transport.h"
 
-LOG_MODULE_REGISTER(greybus_transport_uart, LOG_LEVEL_DBG);
+LOG_MODULE_REGISTER(greybus_xsport_uart, CONFIG_GREYBUS_LOG_LEVEL);
 
 /* Based on UniPro, from Linux */
 #define CPORT_ID_MAX 4095

@@ -49,7 +49,7 @@ extern int usleep(useconds_t usec);
 
 #include "spi-gb.h"
 
-LOG_MODULE_REGISTER(greybus_spi, LOG_LEVEL_INF);
+LOG_MODULE_REGISTER(greybus_spi, CONFIG_GREYBUS_LOG_LEVEL);
 
 #define GB_SPI_VERSION_MAJOR 0
 #define GB_SPI_VERSION_MINOR 1

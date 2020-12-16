@@ -37,11 +37,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#if defined(GB_USB_DEBUG)
-#define gb_usb_debug(x...) printf(x)
-#else
-#define gb_usb_debug(x...)
-#endif
+#include <logging/log.h>
+LOG_MODULE_REGISTER(greybus_usb, CONFIG_GREYBUS_LOG_LEVEL);
 
 static struct device *usbdev;
 
@@ -61,7 +58,7 @@ static uint8_t gb_usb_protocol_version(struct gb_operation *operation)
 
 static uint8_t gb_usb_hcd_stop(struct gb_operation *operation)
 {
-    gb_usb_debug("%s()\n", __func__);
+    LOG_DBG("%s()", __func__);
 
     device_usb_hcd_stop(usbdev);
 
@@ -72,7 +69,7 @@ static uint8_t gb_usb_hcd_start(struct gb_operation *operation)
 {
     int retval;
 
-    gb_usb_debug("%s()\n", __func__);
+    LOG_DBG("%s()", __func__);
 
     retval = device_usb_hcd_start(usbdev);
     if (retval) {
@@ -108,7 +105,7 @@ static uint8_t gb_usb_hub_control(struct gb_operation *operation)
         return GB_OP_NO_MEMORY;
     }
 
-    gb_usb_debug("%s(%hX, %hX, %hX, %hX)\n", __func__, typeReq, wValue, wIndex,
+    LOG_DBG("%s(%hX, %hX, %hX, %hX)", __func__, typeReq, wValue, wIndex,
                  wLength);
 
     status = device_usb_hcd_hub_control(usbdev, typeReq, wValue,  wIndex,

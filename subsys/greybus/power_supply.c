@@ -27,7 +27,6 @@
  */
 
 #include <errno.h>
-#include <debug.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -37,6 +36,9 @@
 
 #include "power_supply-gb.h"
 #include <device_power_supply.h>
+
+#include <logging/log.h>
+LOG_MODULE_REGISTER(greybus_power, CONFIG_GREYBUS_LOG_LEVEL);
 
 /* Version of the Greybus power supply protocol we support */
 #define GB_POWER_SUPPLY_VERSION_MAJOR 0x00
@@ -163,7 +165,7 @@ static uint8_t gb_power_supply_get_description(struct gb_operation *operation)
     request = gb_operation_get_request_payload(operation);
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -213,7 +215,7 @@ static uint8_t gb_power_supply_get_prop_descriptors(struct gb_operation *
     request = gb_operation_get_request_payload(operation);
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -277,7 +279,7 @@ static uint8_t gb_power_supply_get_property(struct gb_operation *operation)
     request = gb_operation_get_request_payload(operation);
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -322,7 +324,7 @@ static uint8_t gb_power_supply_set_property(struct gb_operation *operation)
     request = gb_operation_get_request_payload(operation);
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
