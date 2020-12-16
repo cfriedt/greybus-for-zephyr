@@ -54,11 +54,10 @@ static int defer_greybus_interface_init(const struct device *dev) {
 				DT_LABEL(DT_PARENT(DT_DRV_INST(_num))),		\
         };													\
         													\
-        DEVICE_INIT(greybus_interface_##_num,				\
-			"GBINTERFACE_" #_num,							\
+        DEVICE_DT_INST_DEFINE(_num, 						\
 			defer_greybus_interface_init,					\
-			NULL,											\
+			NULL, NULL,										\
 			&greybus_interface_config_##_num, POST_KERNEL,	\
-			CONFIG_KERNEL_INIT_PRIORITY_DEVICE);
+			CONFIG_KERNEL_INIT_PRIORITY_DEVICE, NULL);
 
 DT_INST_FOREACH_STATUS_OKAY(DEFINE_GREYBUS_INTERFACE);

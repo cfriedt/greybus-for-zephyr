@@ -47,11 +47,11 @@ static int defer_greybus_bundle_init(const struct device *dev) {
 					DT_LABEL(DT_PARENT(DT_DRV_INST(_num))),				\
         };                                                              \
                                                                         \
-        DEVICE_INIT(greybus_bundle_##_num, "GBBUNDLE_" #_num,			\
-                            defer_greybus_bundle_init,						\
-							NULL,										\
+        DEVICE_DT_INST_DEFINE(_num,										\
+                            defer_greybus_bundle_init,					\
+							NULL, NULL,									\
                             &greybus_bundle_config_##_num,				\
 							POST_KERNEL,								\
-                            CONFIG_KERNEL_INIT_PRIORITY_DEVICE);
+                            CONFIG_KERNEL_INIT_PRIORITY_DEVICE, NULL);
 
 DT_INST_FOREACH_STATUS_OKAY(DEFINE_GREYBUS_BUNDLE);

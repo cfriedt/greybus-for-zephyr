@@ -322,7 +322,7 @@ static const struct gb_platform_spi_api gb_platform_spi_api = {
         static struct greybus_spi_control_data									\
 			greybus_spi_control_data_##_num;									\
         																		\
-        DEVICE_AND_API_INIT(spi_spi_control_##_num, "GBSPI_" #_num,					\
+        DEVICE_DT_INST_DEFINE(_num, 										\
                             defer_greybus_spi_control_init,					\
 							&greybus_spi_control_data_##_num,					\
                             &greybus_spi_control_config_##_num, POST_KERNEL,	\
