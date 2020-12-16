@@ -9,9 +9,8 @@
 #define DT_DRV_COMPAT zephyr_greybus_gpio_controller
 #include <device.h>
 
-#define LOG_LEVEL CONFIG_GB_LOG_LEVEL
 #include <logging/log.h>
-LOG_MODULE_REGISTER(greybus_platform_gpio_control);
+LOG_MODULE_REGISTER(greybus_platform_gpio_control, CONFIG_GREYBUS_LOG_LEVEL);
 
 #include "../gpio-gb.h"
 #include "transport.h"

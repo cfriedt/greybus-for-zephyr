@@ -8,9 +8,6 @@
 #include <zephyr.h>
 #include <sys/byteorder.h>
 
-#include <logging/log.h>
-LOG_MODULE_REGISTER(greybus_manifest, CONFIG_GREYBUS_LOG_LEVEL);
-
 #ifdef CONFIG_GREYBUS_MANIFEST_BUILTIN
 static const unsigned char greybus_manifest_builtin[] = {
 #include "greybus_mnfb.inc"

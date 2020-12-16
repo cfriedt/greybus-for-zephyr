@@ -12,9 +12,8 @@
 #include <string.h>
 #include <zephyr.h>
 
-#define LOG_LEVEL CONFIG_GB_LOG_LEVEL
 #include <logging/log.h>
-LOG_MODULE_REGISTER(greybus_platform);
+LOG_MODULE_REGISTER(greybus_platform, CONFIG_GREYBUS_LOG_LEVEL);
 
 struct map_entry {
 	unsigned int cport;

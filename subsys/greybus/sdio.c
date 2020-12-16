@@ -29,7 +29,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-#include <debug.h>
 
 #include <config.h>
 #include <device.h>
@@ -38,6 +37,9 @@
 #include <apps/greybus-utils/utils.h>
 
 #include <sys/byteorder.h>
+
+#include <logging/log.h>
+LOG_MODULE_REGISTER(greybus_sdio, CONFIG_GREYBUS_LOG_LEVEL);
 
 #include "sdio-gb.h"
 
@@ -211,7 +213,7 @@ static uint8_t gb_sdio_protocol_set_ios(struct gb_operation *operation)
     request = gb_operation_get_request_payload(operation);
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -254,7 +256,7 @@ static uint8_t gb_sdio_protocol_command(struct gb_operation *operation)
     request = gb_operation_get_request_payload(operation);
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -330,7 +332,7 @@ static uint8_t gb_sdio_protocol_transfer(struct gb_operation *operation)
     request = gb_operation_get_request_payload(operation);
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 

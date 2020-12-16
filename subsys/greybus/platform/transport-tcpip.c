@@ -60,7 +60,7 @@ int usleep(useconds_t usec) {
 #endif
 
 #include <logging/log.h>
-LOG_MODULE_REGISTER(greybus_transport_tcpip, LOG_LEVEL_INF);
+LOG_MODULE_REGISTER(greybus_transport_tcpip, CONFIG_GREYBUS_LOG_LEVEL);
 
 #include "transport.h"
 
@@ -568,22 +568,19 @@ static int sendMessage(int fd, struct gb_operation_hdr *msg)
 
 static void gb_xport_init(void)
 {
-	LOG_DBG("");
 }
+
 static void gb_xport_exit(void)
 {
-	LOG_DBG("");
 }
 
 static int gb_xport_listen_start(unsigned int cport)
 {
-	LOG_DBG("cport %d", cport);
 	return 0;
 }
 
 static int gb_xport_listen__stop(unsigned int cport)
 {
-	LOG_DBG("cport %d", cport);
 	return 0;
 }
 

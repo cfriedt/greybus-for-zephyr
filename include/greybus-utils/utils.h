@@ -29,7 +29,6 @@
 #ifndef _GREYNUS_UTILS_UTILS_H_
 #define _GREYNUS_UTILS_UTILS_H_
 
-#include <greybus/debug.h>
 #include <greybus/types.h>
 #include <greybus/greybus.h>
 
