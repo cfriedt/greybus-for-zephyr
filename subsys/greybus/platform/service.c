@@ -14,10 +14,8 @@
 #include <stdlib.h>
 #include <zephyr.h>
 
-//#define LOG_LEVEL CONFIG_GB_LOG_LEVEL
-#define LOG_LEVEL LOG_LEVEL_DBG
 #include <logging/log.h>
-LOG_MODULE_REGISTER(greybus_service);
+LOG_MODULE_REGISTER(greybus_service, CONFIG_GREYBUS_LOG_LEVEL);
 
 #include "transport.h"
 #include "manifest.h"

@@ -27,7 +27,6 @@
  */
 
 #include <errno.h>
-//#include <debug.h>
 #include <stdlib.h>
 #include <string.h>
 //#include <queue.h>
@@ -38,6 +37,9 @@
 //#include <apps/greybus-utils/utils.h>
 
 #include <sys/byteorder.h>
+
+#include <logging/log.h>
+LOG_MODULE_REGISTER(greybus_hid, CONFIG_GREYBUS_LOG_LEVEL);
 
 #include "hid-gb.h"
 
@@ -329,7 +331,7 @@ static uint8_t gb_hid_get_report(struct gb_operation *operation)
     DEBUGASSERT(bundle);
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -385,7 +387,7 @@ static uint8_t gb_hid_set_report(struct gb_operation *operation)
     DEBUGASSERT(bundle);
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -491,7 +493,7 @@ static void *report_proc_thread(void *data)
         if (node) {
             ret = gb_operation_send_request(node->operation, NULL, false);
             if (ret) {
-                gb_info("IRQ Event operation failed (%x)!\n",
+                LOG_INF("IRQ Event operation failed (%x)!",
                          ret);
             }
             node_requeue(&hid_info->free_queue, node);
@@ -665,7 +667,7 @@ static int gb_hid_init(unsigned int cport, struct gb_bundle *bundle)
 
     bundle->dev = device_open(DEVICE_TYPE_HID_HW, 0);
     if (!bundle->dev) {
-        gb_info("failed to open HID device!\n");
+        LOG_INF("failed to open HID device!");
         ret = -EIO;
         goto err_hid_init;
     }

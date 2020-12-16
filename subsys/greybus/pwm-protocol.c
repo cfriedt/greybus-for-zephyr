@@ -34,9 +34,11 @@
 #include <device.h>
 #include <device_pwm.h>
 #include <greybus/greybus.h>
-#include <greybus/debug.h>
 #include <sys/byteorder.h>
 #include <apps/greybus-utils/utils.h>
+
+#include <logging/log.h>
+LOG_MODULE_REGISTER(greybus_pwm, CONFIG_GREYBUS_LOG_LEVEL);
 
 #include "pwm-gb.h"
 
@@ -118,7 +120,7 @@ static uint8_t gb_pwm_protocol_count(struct gb_operation *operation)
 
     ret = device_pwm_get_count(bundle->dev, &count);
     if (ret) {
-        gb_info("%s(): %x error in ops\n", __func__, ret);
+        LOG_INF("%s(): %x error in ops", __func__, ret);
         return GB_OP_UNKNOWN_ERROR;
     }
 
@@ -161,7 +163,7 @@ static uint8_t gb_pwm_protocol_activate(struct gb_operation *operation)
     int ret;
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -182,7 +184,7 @@ static uint8_t gb_pwm_protocol_activate(struct gb_operation *operation)
 
     ret = device_pwm_activate(bundle->dev, request->which);
     if (ret) {
-        gb_info("%s(): %x error in ops\n", __func__, ret);
+        LOG_INF("%s(): %x error in ops", __func__, ret);
         return GB_OP_UNKNOWN_ERROR;
     }
 
@@ -207,7 +209,7 @@ static uint8_t gb_pwm_protocol_deactivate(struct gb_operation *operation)
     int ret;
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -228,7 +230,7 @@ static uint8_t gb_pwm_protocol_deactivate(struct gb_operation *operation)
 
     ret = device_pwm_deactivate(bundle->dev, request->which);
     if (ret) {
-        gb_info("%s(): %x error in ops\n", __func__, ret);
+        LOG_INF("%s(): %x error in ops", __func__, ret);
         return GB_OP_UNKNOWN_ERROR;
     }
 
@@ -255,7 +257,7 @@ static uint8_t gb_pwm_protocol_config(struct gb_operation *operation)
     int ret;
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -278,7 +280,7 @@ static uint8_t gb_pwm_protocol_config(struct gb_operation *operation)
     period = sys_le32_to_cpu(request->period);
     ret = device_pwm_config(bundle->dev, request->which, duty, period);
     if (ret) {
-        gb_info("%s(): %x error in ops\n", __func__, ret);
+        LOG_INF("%s(): %x error in ops", __func__, ret);
         return GB_OP_UNKNOWN_ERROR;
     }
 
@@ -304,7 +306,7 @@ static uint8_t gb_pwm_protocol_polarity(struct gb_operation *operation)
     int ret;
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -326,7 +328,7 @@ static uint8_t gb_pwm_protocol_polarity(struct gb_operation *operation)
     ret = device_pwm_set_polarity(bundle->dev, request->which,
                                           request->polarity);
     if (ret) {
-        gb_info("%s(): %x error in ops\n", __func__, ret);
+        LOG_INF("%s(): %x error in ops", __func__, ret);
         return GB_OP_UNKNOWN_ERROR;
     }
 
@@ -352,7 +354,7 @@ static uint8_t gb_pwm_protocol_enable(struct gb_operation *operation)
     int ret;
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -373,7 +375,7 @@ static uint8_t gb_pwm_protocol_enable(struct gb_operation *operation)
 
     ret = device_pwm_enable(bundle->dev, request->which);
     if (ret) {
-        gb_info("%s(): error %x in ops return\n", __func__, ret);
+        LOG_INF("%s(): error %x in ops return", __func__, ret);
         return GB_OP_UNKNOWN_ERROR;
     }
 
@@ -399,7 +401,7 @@ static uint8_t gb_pwm_protocol_disable(struct gb_operation *operation)
     int ret;
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -420,7 +422,7 @@ static uint8_t gb_pwm_protocol_disable(struct gb_operation *operation)
 
     ret = device_pwm_disable(bundle->dev, request->which);
     if (ret) {
-        gb_info("%s(): %x error in ops\n", __func__, ret);
+        LOG_INF("%s(): %x error in ops", __func__, ret);
         return GB_OP_UNKNOWN_ERROR;
     }
 
@@ -457,7 +459,7 @@ int gb_pwm_init(unsigned int cport, struct gb_bundle *bundle)
     bundle->dev = device_open(pwm_info->dev_type, pwm_info->dev_id);
     if (!bundle->dev) {
         free(pwm_info);
-        gb_info("%s(): failed to open device!\n", __func__);
+        LOG_INF("%s(): failed to open device!", __func__);
         return -EIO;
     }
 

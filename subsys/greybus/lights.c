@@ -34,11 +34,13 @@
 #include <device.h>
 #include <device_lights.h>
 #include <greybus/greybus.h>
-#include <greybus/debug.h>
 #include <apps/greybus-utils/utils.h>
 #include <sys/byteorder.h>
 
 #include "lights-gb.h"
+
+#include <logging/log.h>
+LOG_MODULE_REGISTER(greybus_lights, CONFIG_GREYBUS_LOG_LEVEL);
 
 #define GB_LIGHTS_VERSION_MAJOR 0
 #define GB_LIGHTS_VERSION_MINOR 1
@@ -164,7 +166,7 @@ static uint8_t gb_lights_get_light_config(struct gb_operation *operation)
     DEBUGASSERT(bundle);
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -210,7 +212,7 @@ static uint8_t gb_lights_get_channel_config(struct gb_operation *operation)
     DEBUGASSERT(bundle);
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -262,7 +264,7 @@ static uint8_t gb_lights_get_channel_flash_config(
     DEBUGASSERT(bundle);
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -311,7 +313,7 @@ static uint8_t gb_lights_set_brightness(struct gb_operation *operation)
     DEBUGASSERT(bundle);
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -348,7 +350,7 @@ static uint8_t gb_lights_set_blink(struct gb_operation *operation)
     DEBUGASSERT(bundle);
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -385,7 +387,7 @@ static uint8_t gb_lights_set_color(struct gb_operation *operation)
     DEBUGASSERT(bundle);
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -422,7 +424,7 @@ static uint8_t gb_lights_set_fade(struct gb_operation *operation)
     DEBUGASSERT(bundle);
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -459,7 +461,7 @@ static uint8_t gb_lights_set_flash_intensity(struct gb_operation *operation)
     DEBUGASSERT(bundle);
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -495,7 +497,7 @@ static uint8_t gb_lights_set_flash_strobe(struct gb_operation *operation)
     DEBUGASSERT(bundle);
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -531,7 +533,7 @@ static uint8_t gb_lights_set_flash_timeout(struct gb_operation *operation)
     DEBUGASSERT(bundle);
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -568,7 +570,7 @@ static uint8_t gb_lights_get_flash_fault(struct gb_operation *operation)
     DEBUGASSERT(bundle);
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 

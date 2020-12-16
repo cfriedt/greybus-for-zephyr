@@ -4,9 +4,8 @@
 #define DT_DRV_COMPAT zephyr_greybus_string
 #include <device.h>
 
-#define LOG_LEVEL CONFIG_GB_LOG_LEVEL
 #include <logging/log.h>
-LOG_MODULE_REGISTER(greybus_platform_string);
+LOG_MODULE_REGISTER(greybus_platform_string, CONFIG_GREYBUS_LOG_LEVEL);
 
 struct greybus_string_config {
     const uint16_t id;

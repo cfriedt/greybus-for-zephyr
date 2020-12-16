@@ -31,12 +31,14 @@
 #include <greybus/ara_version.h>
 #include <string.h>
 #include <sys/byteorder.h>
-#include <greybus/debug.h>
 #include <greybus/greybus.h>
 #include <unipro/unipro.h>
 #include <device.h>
 #include <greybus/timesync.h>
 #include <greybus-utils/manifest.h>
+
+#include <logging/log.h>
+LOG_MODULE_REGISTER(greybus_control, CONFIG_GREYBUS_LOG_LEVEL);
 
 #include "control-gb.h"
 
@@ -78,7 +80,7 @@ static uint8_t gb_control_get_manifest(struct gb_operation *operation)
 
     mh = get_manifest_blob();
     if (!mh) {
-        gb_error("Failed to get a valid manifest\n");
+        LOG_ERR("Failed to get a valid manifest");
         return GB_OP_INVALID;
     }
 
@@ -94,13 +96,13 @@ static uint8_t gb_control_connected(struct gb_operation *operation)
         gb_operation_get_request_payload(operation);
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
     retval = gb_listen(sys_le16_to_cpu(request->cport_id));
     if (retval) {
-        gb_error("Can not connect cport %d: error %d\n",
+        LOG_ERR("Can not connect cport %d: error %d",
                  sys_le16_to_cpu(request->cport_id), retval);
         return GB_OP_INVALID;
     }
@@ -126,7 +128,7 @@ static uint8_t gb_control_disconnected(struct gb_operation *operation)
         gb_operation_get_request_payload(operation);
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -134,7 +136,7 @@ static uint8_t gb_control_disconnected(struct gb_operation *operation)
 
     retval = gb_notify(sys_le16_to_cpu(request->cport_id), GB_EVT_DISCONNECTED);
     if (retval) {
-        gb_error("Cannot notify GB driver of disconnect event.\n");
+        LOG_ERR("Cannot notify GB driver of disconnect event.");
         /*
          * don't return, we still want to reset the cport and stop listening
          * on the CPort.
@@ -145,7 +147,7 @@ static uint8_t gb_control_disconnected(struct gb_operation *operation)
 
     retval = gb_stop_listening(sys_le16_to_cpu(request->cport_id));
     if (retval) {
-        gb_error("Can not disconnect cport %d: error %d\n",
+        LOG_ERR("Can not disconnect cport %d: error %d",
                  sys_le16_to_cpu(request->cport_id), retval);
         return GB_OP_INVALID;
     }
@@ -226,7 +228,7 @@ static uint8_t __attribute__((unused)) gb_control_intf_pwr_set(struct gb_operati
     struct gb_control_intf_pwr_set_response *response;
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -250,7 +252,7 @@ static uint8_t __attribute__((unused)) gb_control_bundle_pwr_set(struct gb_opera
     int status = 0;
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -268,7 +270,7 @@ static uint8_t __attribute__((unused)) gb_control_bundle_pwr_set(struct gb_opera
     dev = bundle->dev;
 //    pm_ops = dev->driver->pm;
 //    if (!pm_ops) {
-//        gb_info("pm operations not supported by %s driver\n", dev->name);
+//        LOG_INF("pm operations not supported by %s driver", dev->name);
 //        response->result_code = GB_CONTROL_PWR_NOSUPP;
 //        return GB_OP_SUCCESS;
 //    }
@@ -278,7 +280,7 @@ static uint8_t __attribute__((unused)) gb_control_bundle_pwr_set(struct gb_opera
 //        if (pm_ops->poweroff) {
 //            status = pm_ops->poweroff(dev);
 //        } else {
-//            gb_info("poweroff not supported by %s driver\n", dev->name);
+//            LOG_INF("poweroff not supported by %s driver", dev->name);
 //            response->result_code = GB_CONTROL_PWR_NOSUPP;
 //            goto out;
 //        }
@@ -287,7 +289,7 @@ static uint8_t __attribute__((unused)) gb_control_bundle_pwr_set(struct gb_opera
 //        if (pm_ops->suspend) {
 //            status = pm_ops->suspend(dev);
 //        } else {
-//            gb_info("suspend not supported by %s driver\n", dev->name);
+//            LOG_INF("suspend not supported by %s driver", dev->name);
 //            response->result_code = GB_CONTROL_PWR_NOSUPP;
 //            goto out;
 //        }
@@ -296,7 +298,7 @@ static uint8_t __attribute__((unused)) gb_control_bundle_pwr_set(struct gb_opera
 //        if (pm_ops->resume) {
 //            status = pm_ops->resume(dev);
 //        } else {
-//            gb_info("resume not supported by %s driver\n", dev->name);
+//            LOG_INF("resume not supported by %s driver", dev->name);
 //            response->result_code = GB_CONTROL_PWR_NOSUPP;
 //            goto out;
 //        }
@@ -322,7 +324,7 @@ static uint8_t gb_control_timesync_enable(struct gb_operation *operation)
     int retval;
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
@@ -352,7 +354,7 @@ static uint8_t gb_control_timesync_authoritative(struct gb_operation *operation)
     int retval;
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 
