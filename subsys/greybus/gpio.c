@@ -44,7 +44,7 @@
 
 #include "gpio-gb.h"
 
-LOG_MODULE_REGISTER(greybus_gpio, LOG_LEVEL_INF);
+LOG_MODULE_REGISTER(greybus_gpio, CONFIG_GREYBUS_LOG_LEVEL);
 
 #define GB_GPIO_VERSION_MAJOR 0
 #define GB_GPIO_VERSION_MINOR 1

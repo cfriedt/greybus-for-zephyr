@@ -37,10 +37,12 @@
 #include <greybus/greybus.h>
 #include <greybus/loopback.h>
 #include <greybus/greybus_timestamp.h>
-#include <greybus/debug.h>
 #include <time.h>
 #include <util.h>
 #include <sys/byteorder.h>
+
+#include <logging/log.h>
+LOG_MODULE_REGISTER(greybus_loopback, CONFIG_GREYBUS_LOG_LEVEL);
 
 #define GB_LOOPBACK_VERSION_MAJOR 0
 #define GB_LOOPBACK_VERSION_MINOR 1
@@ -379,7 +381,7 @@ static uint8_t gb_loopback_transfer_req_cb(struct gb_operation *operation)
     size_t request_length;
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 

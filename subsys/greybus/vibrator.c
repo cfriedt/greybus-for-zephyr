@@ -28,14 +28,15 @@
  */
 
 #include <errno.h>
-#include <debug.h>
 #include <stdlib.h>
 
 #include <greybus/greybus.h>
-#include <greybus/debug.h>
 #include <apps/greybus-utils/utils.h>
 #include <gpio.h>
 #include <sys/byteorder.h>
+
+#include <logging/log.h>
+LOG_MODULE_REGISTER(greybus_vibrator, CONFIG_GREYBUS_LOG_LEVEL);
 
 #include "vibrator-gb.h"
 
@@ -67,7 +68,7 @@ static uint8_t gb_vibrator_vibrator_on(struct gb_operation *operation)
             gb_operation_get_request_payload(operation);
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        LOG_ERR("dropping short message");
         return GB_OP_INVALID;
     }
 

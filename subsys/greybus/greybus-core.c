@@ -62,7 +62,7 @@ extern int pthread_setname_np(pthread_t thread, const char *name);
 #include <string.h>
 #include <errno.h>
 
-LOG_MODULE_REGISTER(greybus, LOG_LEVEL_INF);
+LOG_MODULE_REGISTER(greybus, CONFIG_GREYBUS_LOG_LEVEL);
 
 #if !defined(CONFIG_POSIX_API)
 /*
@@ -1183,7 +1183,7 @@ int gb_tape_replay(const char *pathname)
     if (!pathname || !gb_tape)
         return -EINVAL;
 
-    printk("greybus: replaying '%s'...\n", pathname);
+    LOG_DBG("greybus: replaying '%s'...", pathname);
 
     fd = gb_tape->open(pathname, GB_TAPE_RDONLY);
     if (fd < 0)

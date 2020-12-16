@@ -11,9 +11,8 @@
 #include <device.h>
 #include <devicetree.h>
 
-#define LOG_LEVEL CONFIG_GB_LOG_LEVEL
 #include <logging/log.h>
-LOG_MODULE_REGISTER(greybus_platform_bundle);
+LOG_MODULE_REGISTER(greybus_platform_bundle, CONFIG_GREYBUS_LOG_LEVEL);
 
 struct greybus_bundle_config {
     const uint8_t id;
