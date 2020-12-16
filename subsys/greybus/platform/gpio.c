@@ -145,22 +145,22 @@ static int defer_greybus_gpio_control_init(const struct device *dev) {
 																				\
 		static struct greybus_gpio_control_config								\
 			greybus_gpio_control_config_##_num = {								\
-                .id = (uint8_t)DT_INST_PROP(_num, id), \
-                .bundle = (uint8_t)DT_PROP(DT_PARENT(DT_DRV_INST(_num)), id), \
+                .id = (uint8_t)DT_INST_PROP(_num, id), 							\
+                .bundle = (uint8_t)DT_PROP(DT_PARENT(DT_DRV_INST(_num)), id), 	\
 				.greybus_gpio_controller_name = 								\
                     DT_LABEL(DT_PHANDLE(DT_DRV_INST(_num), 						\
                     		greybus_gpio_controller)), 							\
-				.bus_name = 									\
-					DT_LABEL(DT_PARENT(DT_PARENT(DT_DRV_INST(_num)))),		\
+				.bus_name = 													\
+					DT_LABEL(DT_PARENT(DT_PARENT(DT_DRV_INST(_num)))),			\
         };																		\
         																		\
         static struct greybus_gpio_control_data									\
 			greybus_gpio_control_data_##_num;									\
         																		\
-        DEVICE_INIT(gpio_gpio_control_##_num, "GBGPIO_" #_num,					\
-                            defer_greybus_gpio_control_init,					\
+        DEVICE_DT_INST_DEFINE(_num, 											\
+                            defer_greybus_gpio_control_init, NULL,				\
 							&greybus_gpio_control_data_##_num,					\
                             &greybus_gpio_control_config_##_num, POST_KERNEL,	\
-                            CONFIG_KERNEL_INIT_PRIORITY_DEVICE);
+                            CONFIG_KERNEL_INIT_PRIORITY_DEVICE, NULL);
 
 DT_INST_FOREACH_STATUS_OKAY(DEFINE_GREYBUS_GPIO_CONTROL);

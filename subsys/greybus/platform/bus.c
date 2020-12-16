@@ -41,9 +41,8 @@ static int greybus_init(const struct device *bus) {
 					DT_INST_PROP(_num, version_minor),	\
         };												\
         												\
-        DEVICE_AND_API_INIT(greybus_##_num,				\
-			"GREYBUS_" #_num,							\
-			greybus_init, NULL,			\
+		DEVICE_DT_INST_DEFINE(_num,						\
+			greybus_init, NULL,	NULL,					\
 			&greybus_config_##_num, POST_KERNEL,		\
 			CONFIG_KERNEL_INIT_PRIORITY_DEVICE,			\
 			NULL);
