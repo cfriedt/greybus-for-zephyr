@@ -32,13 +32,23 @@ Next, clone and synchronize repositories.
 While that is updating, choose a board from Zephyr's list of 
 `Supported Boards <https://docs.zephyrproject.org/latest/boards/index.html>`_.
 
+Next, update git submodules. Currently, there is a git submodule for the
+``manifesto`` utility.
+
+.. code-block:: bash
+
+    cd greybus
+    git submodule init
+    git submodule update
+    cd ..
+
 Lastly, flash firmware for the chosen ``$BOARD`` using the commands below.
 
 .. code-block:: bash
 
     cd zephyr
     source zephyr-env.sh
-    git apply ../greybus-for-zephyr.git/zephyr-gpio-get-direction.patch
+    git apply ../greybus/zephyr-gpio-get-direction.patch
     git apply ../greybus/zephyr-gpio-emul.patch
     git apply ../greybus/zephyr-sys-byteorder-posix.patch
     git apply ../greybus/zephyr-aligned-allocators.patch
