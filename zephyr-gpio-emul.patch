@@ -776,8 +776,8 @@ index 000000000000..b3aec93ae460
 +		.flags = gpio_emul_flags_##_num,			\
 +	};								\
 +									\
-+	DEVICE_AND_API_INIT(gpio_emul_##_num, DT_INST_LABEL(_num),	\
-+			    gpio_emul_init, &gpio_emul_data_##_num,	\
++	DEVICE_DT_INST_DEFINE(_num,					\
++			    gpio_emul_init, NULL, &gpio_emul_data_##_num,\
 +			    &gpio_emul_config_##_num, POST_KERNEL,	\
 +			    CONFIG_KERNEL_INIT_PRIORITY_DEVICE,		\
 +			    &gpio_emul_driver)

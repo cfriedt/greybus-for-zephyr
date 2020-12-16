@@ -46,12 +46,14 @@
 };
 
 &greybus0 {
+	label = "GREYBUS_0";
 	status = "okay";
 	/* defaults in effect, so this isn't necessary */
 	version-major = <GREYBUS_VERSION_MAJOR>;
 	version-minor = <GREYBUS_VERSION_MINOR>;
 
 	gbstring0: gbstring0 {
+		label = "GBSTRING_0";
 		status = "okay";
 		compatible = "zephyr,greybus-string";
 		id = <0>;
@@ -59,6 +61,7 @@
 	};
 
 	gbstring1: gbstring1 {
+		label = "GBSTRING_1";
 		status = "okay";
 		compatible = "zephyr,greybus-string";
 		id = <1>;
@@ -66,6 +69,7 @@
 	};
 
 	gbinterface0 {
+		label = "GBINTERFACE_0";
 		status = "okay";
 		compatible = "zephyr,greybus-interface";
 		vendor-string-id = <&gbstring0>;
@@ -74,6 +78,7 @@
 	};
 
 	gbbundle0 {
+		label = "GBBUNDLE_0";
 		status = "okay";
 		compatible = "zephyr,greybus-bundle";
 		greybus-bundle;
@@ -86,6 +91,7 @@
 		bundle-class = <BUNDLE_CLASS_CONTROL>;
 
 		gbcontrol0 {
+			label = "GBCONTROL_0";
 			status = "okay";
 			compatible = "zephyr,greybus-control";
 			greybus-controller;
@@ -100,6 +106,7 @@
 	};
 	
 	gbbundle1 {
+		label = "GBBUNDLE_1";
 		status = "okay";
 		compatible = "zephyr,greybus-bundle";
 		greybus-bundle;
@@ -107,6 +114,7 @@
 		bundle-class = <BUNDLE_CLASS_BRIDGED_PHY>;		
 				
 		gbspi0 {
+			label = "GBSPI_0";
 			status = "okay";
 			compatible = "zephyr,greybus-spi-controller";
 			greybus-spi-controller = <&spi0>;
@@ -125,6 +133,7 @@
 			flags = <GB_SPI_FLAG_HALF_DUPLEX>;
 
 			eeprom {
+				label = "GBSPIDEV_0";
 				status = "okay";
 				compatible = "zephyr,greybus-spi-peripheral";
 				/* cs is used as an array index for compile-time definition [cs] = {...}, */				
