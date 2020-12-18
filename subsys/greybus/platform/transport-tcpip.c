@@ -45,7 +45,6 @@ extern int usleep(useconds_t usec);
 
 #else
 
-#include <greybus/debug.h>
 #include <greybus/greybus.h>
 #include <greybus-utils/manifest.h>
 #include <posix/unistd.h>

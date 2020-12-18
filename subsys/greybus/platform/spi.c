@@ -330,7 +330,7 @@ static const struct gb_platform_spi_api gb_platform_spi_api = {
         																		\
         DEVICE_DT_INST_DEFINE(_num, 										\
                             defer_greybus_spi_control_init,					\
-							&greybus_spi_control_data_##_num,					\
+			    NULL, &greybus_spi_control_data_##_num,					\
                             &greybus_spi_control_config_##_num, POST_KERNEL,	\
                             CONFIG_KERNEL_INIT_PRIORITY_DEVICE, \
               &gb_platform_spi_api);
