@@ -11,12 +11,22 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: "zephyrprojectrtos/ci:v0.11.10"
+    # This only works with the "matrix" strategy
+    #fail-fast: false
+    env:
+      ZEPHYR_BASE: ${{ github.workspace }}/zephyr
+      ZEPHYR_TOOLCHAIN_VARIANT: zephyr
+      ZEPHYR_SDK_INSTALL_DIR: /opt/sdk/zephyr-sdk-0.11.4
+      GB: ${{ github.workspace }}/greybus
+      PATH: ${{ github.workspace  }}/zephyr/scripts:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     steps:
+
     - name: Checkout
       uses: actions/checkout@v2
       with:
         submodules: true
         path: greybus
+
     - name: Setup Environment
       run: |
         west init -l greybus
@@ -27,22 +37,58 @@ jobs:
         git apply ../greybus/zephyr-gpio-emul.patch
         git apply ../greybus/zephyr-aligned-allocators.patch
         git apply ../greybus/zephyr-dynamic-pthread-stacks.patch
-    - name: Build & Run GPIO Tests
+
+    - name: GPIO
+      timeout-minutes: 5
       run: |
-        cd zephyr
-        export ZEPHYR_BASE=`pwd`
-        export PATH=`pwd`/scripts:$PATH
-        export ZEPHYR_TOOLCHAIN_VARIANT=zephyr
-        export ZEPHYR_SDK_INSTALL_DIR=/opt/sdk/zephyr-sdk-0.11.4
-        west build -b native_posix_64 -p always -t run ../greybus/tests/subsys/greybus/gpio
-    - name: Build Sample
+        cd $ZEPHYR_BASE
+        west build -b native_posix_64 -p always $GB/tests/subsys/greybus/gpio
+        ./build/zephyr/zephyr.exe
+
+    - name: native_posix_64 [tcp] [gpio]
       run: |
-        cd zephyr
-        export ZEPHYR_BASE=`pwd`
-        export PATH=`pwd`/scripts:$PATH
-        export ZEPHYR_TOOLCHAIN_VARIANT=zephyr
-        export ZEPHYR_SDK_INSTALL_DIR=/opt/sdk/zephyr-sdk-0.11.4
-        west build -b native_posix_64 -p always ../greybus/samples/subsys/greybus/net
+        cd $ZEPHYR_BASE
+        west build -b native_posix_64 -p always $GB/samples/subsys/greybus/net
+
+    - name: cc1352r1_launchxl [tcp] [ieee802154] [gpio] [i2c]
+      run: |
+        cd $ZEPHYR_BASE
+        west build -b cc1352r1_launchxl -p always $GB/samples/subsys/greybus/net -- -DOVERLAY_CONFIG=overlay-802154.conf  -DCONFIG_NET_CONFIG_IEEE802154_DEV_NAME=\"IEEE802154_0\"  -DCONFIG_IEEE802154_CC13XX_CC26XX=y  -DCONFIG_IEEE802154_CC13XX_CC26XX_SUB_GHZ=n
+
+    - name: cc1352r1_launchxl [tcp] [ieee802154g] [gpio] [i2c]
+      run: |
+        cd $ZEPHYR_BASE
+        west build -b cc1352r1_launchxl -p always $GB/samples/subsys/greybus/net -- -DOVERLAY_CONFIG=overlay-802154-subg.conf  -DCONFIG_NET_CONFIG_IEEE802154_DEV_NAME=\"IEEE802154_1\"  -DCONFIG_IEEE802154_CC13XX_CC26XX=n  -DCONFIG_IEEE802154_CC13XX_CC26XX_SUB_GHZ=y
+
+    - name: cc1352r1_launchxl [uart] [gpio] [i2c]
+      run: |
+        cd $ZEPHYR_BASE
+        west build -b cc1352r1_launchxl -p always $GB/samples/subsys/greybus/uart
+
+    - name: cc1352r_sensortag [tcp] [ieee802154] [gpio] [i2c] [spi]
+      run: |
+        cd $ZEPHYR_BASE
+        west build -b cc1352r_sensortag -p always $GB/samples/subsys/greybus/net -- -DOVERLAY_CONFIG=overlay-802154.conf  -DCONFIG_NET_CONFIG_IEEE802154_DEV_NAME=\"IEEE802154_0\"  -DCONFIG_IEEE802154_CC13XX_CC26XX=y  -DCONFIG_IEEE802154_CC13XX_CC26XX_SUB_GHZ=n
+
+    - name: cc1352r_sensortag [tcp] [ieee802154g] [gpio] [i2c] [spi]
+      run: |
+        cd $ZEPHYR_BASE
+        west build -b cc1352r_sensortag -p always $GB/samples/subsys/greybus/net -- -DOVERLAY_CONFIG=overlay-802154-subg.conf  -DCONFIG_NET_CONFIG_IEEE802154_DEV_NAME=\"IEEE802154_1\"  -DCONFIG_IEEE802154_CC13XX_CC26XX=n  -DCONFIG_IEEE802154_CC13XX_CC26XX_SUB_GHZ=y
+
+    - name: cc1352r_sensortag [uart] [gpio] [i2c] [spi]
+      run: |
+        cd $ZEPHYR_BASE
+        west build -b cc1352r_sensortag -p always $GB/samples/subsys/greybus/uart
+
+    - name: nrf52840dk_nrf52840 [tcp] [ble] [gpio]
+      run: |
+        cd $ZEPHYR_BASE
+        west build -b nrf52840dk_nrf52840 -p always $GB/samples/subsys/greybus/net -- -DOVERLAY_CONFIG=overlay-bt.conf
+
+    - name: nrf52840dk_nrf52840 [tcp] [ieee802154] [gpio]
+      run: |
+        cd $ZEPHYR_BASE
+        west build -b nrf52840dk_nrf52840 -p always $GB/samples/subsys/greybus/net -- -DOVERLAY_CONFIG=overlay-802154.conf
 
 # sanity check seems to occasionally timeout and cause failures so disabling for now
 #    - name: Run Sample Applications in Sanity Check Script

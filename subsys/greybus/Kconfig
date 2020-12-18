@@ -7,7 +7,7 @@
 menuconfig GREYBUS
 	bool "Greybus"
 	select PTHREAD_IPC
-	select NET_HOSTNAME_ENABLE
+	depends on !NET_HOSTNAME_ENABLE || (NET_HOSTNAME_ENABLE && NETWORKING)
 	select THREAD_NAME
 	select PTHREAD_DYNAMIC_STACK
 	help
