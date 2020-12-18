@@ -3,8 +3,8 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
- #include <dt-bindings/greybus/greybus.h>
- #include <dt-bindings/greybus/spi.h>
+
+#include <dt-bindings/greybus/greybus.h>
 
 / {
 	resources {
@@ -28,18 +28,6 @@
 };
 
 &led1 {
-	status = "okay";
-};
-
-&led2 {
-	status = "okay";
-};
-
-&sensor0 {
-	status = "okay";
-};
-
-&sensor1 {
 	status = "okay";
 };
 
@@ -120,70 +108,6 @@
 			/* GPIO is CPort 1 in this case */
 			id = <1>;
 			cport-protocol = <CPORT_PROTOCOL_GPIO>;
-		};
-	};
-	
-	gbbundle2 {
-		label = "GBBUNDLE_2";
-		status = "okay";
-		compatible = "zephyr,greybus-bundle";
-		greybus-bundle;
-		id = <2>;
-		bundle-class = <BUNDLE_CLASS_BRIDGED_PHY>;		
-				
-		gbi2c0 {
-			label = "GBI2C_0";
-			status = "okay";
-			compatible = "zephyr,greybus-i2c-controller";
-			greybus-i2c-controller = <&i2c0>;
-			/* I2C is CPort 2 in this case */
-			id = <2>;
-			cport-protocol = <CPORT_PROTOCOL_I2C>;
-		};
-	};
-	
-	gbbundle3 {
-		label = "GBBUNDLE_3";
-		status = "okay";
-		compatible = "zephyr,greybus-bundle";
-		greybus-bundle;
-		id = <3>;
-		bundle-class = <BUNDLE_CLASS_BRIDGED_PHY>;		
-				
-		gbspi0 {
-			label = "GBSPI_0";
-			status = "okay";
-			compatible = "zephyr,greybus-spi-controller";
-			greybus-spi-controller = <&spi0>;
-			/* SPI is CPort 3 in this case */
-			id = <3>;
-			cport-protocol = <CPORT_PROTOCOL_SPI>;
-
-			/*
-			 * Entries for struct gb_spi_master_config_response
-			 */
-			bpw-mask = <0xff>;
-			min-speed-hz = <2000000>;
-			max-speed-hz = <6000000>;			
-			mode = <0>;
-			flags = <0>;
-
-			gbspidev0 {
-				label = "GBSPIDEV_0";
-				status = "okay";
-				compatible = "zephyr,greybus-spi-peripheral";
-				/* cs is used as an array index */				
-				cs = <0>;
-				
-				/*
-				 * Entries for struct gb_spi_device_config_response
-				 */
-				mode = <0>;
-				bpw = <8>;
-				max-speed-hz = <8000000>;
-				device-type = <GB_SPI_SPI_DEV>;
-				device-name = "ADXL362";
-			};
 		};
 	};
 };
