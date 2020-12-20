@@ -38,7 +38,7 @@ static int greybus_init(const struct device *bus) {
 		DEVICE_DT_INST_DEFINE(_num,						\
 			greybus_init, NULL,	NULL,					\
 			&greybus_config_##_num, POST_KERNEL,		\
-			CONFIG_KERNEL_INIT_PRIORITY_DEVICE,			\
+			CONFIG_GREYBUS_SERVICE_INIT_PRIORITY,			\
 			NULL);
 
 DT_INST_FOREACH_STATUS_OKAY(DEFINE_GREYBUS);

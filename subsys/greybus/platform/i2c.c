@@ -61,11 +61,6 @@ static int greybus_i2c_control_init(const struct device *dev) {
     return 0;
 }
 
-extern int gb_service_defer_init(const struct device *, int (*init)(const struct device *));
-static int defer_greybus_i2c_control_init(const struct device *dev) {
-	return gb_service_defer_init(dev, &greybus_i2c_control_init);
-}
-
 #define DEFINE_GREYBUS_I2C_CONTROL(_num)										\
 																				\
 		BUILD_ASSERT(DT_PROP(DT_PARENT(DT_DRV_INST(_num)), bundle_class)		\
@@ -89,9 +84,9 @@ static int defer_greybus_i2c_control_init(const struct device *dev) {
 			greybus_i2c_control_data_##_num;									\
         																		\
         DEVICE_INIT(i2c_i2c_control_##_num, "GBI2C_" #_num,					\
-                            defer_greybus_i2c_control_init,					\
+                            greybus_i2c_control_init,					\
 							&greybus_i2c_control_data_##_num,					\
                             &greybus_i2c_control_config_##_num, POST_KERNEL,	\
-                            CONFIG_KERNEL_INIT_PRIORITY_DEVICE);
+                            CONFIG_GREYBUS_CPORT_INIT_PRIORITY);
 
 DT_INST_FOREACH_STATUS_OKAY(DEFINE_GREYBUS_I2C_CONTROL);

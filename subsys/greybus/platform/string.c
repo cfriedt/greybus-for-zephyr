@@ -29,11 +29,6 @@ static int greybus_string_init(const struct device *dev) {
     return 0;
 }
 
-extern int gb_service_defer_init(const struct device *, int (*init)(const struct device *));
-static int defer_greybus_string_init(const struct device *dev) {
-	return gb_service_defer_init(dev, &greybus_string_init);
-}
-
 #define DEFINE_GREYBUS_STRING(_num)                                     \
 																		\
         static const struct greybus_string_config 						\
@@ -45,8 +40,8 @@ static int defer_greybus_string_init(const struct device *dev) {
         };                                                              \
                                                                         \
 		DEVICE_DT_INST_DEFINE(_num,										\
-        					defer_greybus_string_init, NULL, NULL,		\
+        					greybus_string_init, NULL, NULL,		\
                             &greybus_string_config_##_num, POST_KERNEL,	\
-                            CONFIG_KERNEL_INIT_PRIORITY_DEVICE, NULL);
+                            CONFIG_GREYBUS_STRING_INIT_PRIORITY, NULL);
 
 DT_INST_FOREACH_STATUS_OKAY(DEFINE_GREYBUS_STRING);
