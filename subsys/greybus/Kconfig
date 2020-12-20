@@ -161,6 +161,41 @@ config GREYBUS_VIBRATOR
 	help
 	  Select this for Greybus Vibrator support.
 
+config GREYBUS_SERVICE_INIT_PRIORITY
+	int "default Greybus Service Init Priority"
+	default 85
+	range 0 99
+	help
+	  Greybus service init priority to ensure device initialization order.
+
+config GREYBUS_STRING_INIT_PRIORITY
+	int "default Greybus String Init Priority"
+	default 86
+	range 0 99
+	help
+	  Greybus string init priority to ensure device initialization order.
+
+config GREYBUS_INTERFACE_INIT_PRIORITY
+	int "default Greybus Interface Init Priority"
+	default 87
+	range 0 99
+	help
+	  Greybus interface init priority to ensure device initialization order.
+
+config GREYBUS_BUNDLE_INIT_PRIORITY
+	int "default Greybus Bundle Init Priority"
+	default 88
+	range 0 99
+	help
+	  Greybus bundle init priority to ensure device initialization order.
+
+config GREYBUS_CPORT_INIT_PRIORITY
+	int "default Greybus Cport Init Priority"
+	default 89
+	range 0 99
+	help
+	  Greybus cport init priority to ensure device initialization order.
+
 module = GREYBUS
 module-str = gb
 source "subsys/logging/Kconfig.template.log_config"
