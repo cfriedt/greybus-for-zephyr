@@ -17,8 +17,9 @@ jobs:
       ZEPHYR_BASE: ${{ github.workspace }}/zephyr
       ZEPHYR_TOOLCHAIN_VARIANT: zephyr
       ZEPHYR_SDK_INSTALL_DIR: /opt/sdk/zephyr-sdk-0.11.4
+      WS: ${{ github.workspace }}
       GB: ${{ github.workspace }}/greybus
-      PATH: ${{ github.workspace  }}/zephyr/scripts:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      PATH: ${{ github.workspace  }}/zephyr/scripts:${{ github.workspace  }}/tools/net-tools:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     steps:
 
     - name: Checkout
@@ -31,73 +32,79 @@ jobs:
       run: |
         west init -l greybus
         west update
-        cd zephyr
-        git apply ../greybus/zephyr-sys-byteorder-posix.patch
-        git apply ../greybus/zephyr-gpio-get-direction.patch
-        git apply ../greybus/zephyr-gpio-emul.patch
-        git apply ../greybus/zephyr-aligned-allocators.patch
-        git apply ../greybus/zephyr-dynamic-pthread-stacks.patch
+        cd ${ZEPHYR_BASE}
+        git apply ${GB}/zephyr-sys-byteorder-posix.patch
+        git apply ${GB}/zephyr-gpio-get-direction.patch
+        git apply ${GB}/zephyr-gpio-emul.patch
+        git apply ${GB}/zephyr-aligned-allocators.patch
+        git apply ${GB}/zephyr-dynamic-pthread-stacks.patch
+        # "loop-socat.sh &" needs to called in order to run tests under
+        # qemu. Otherwise, there is an error like the one below:
+        # stty: 'standard input': Inappropriate ioctl for device
+        # ERROR - qemu_cortex_m3 subsys.greybus.gpio FAILED: Exited with 2
+        ${WS}/tools/net-tools/loop-socat.sh &
 
-    - name: GPIO
-      timeout-minutes: 5
+    # Disabled to du alignment issues on x86_64
+    #- name: GPIO
+    #  timeout-minutes: 5
+    #  run: |
+    #    cd ${ZEPHYR_BASE}
+    #    west build -b native_posix_64 -p always ${GB}/tests/subsys/greybus/gpio
+    #    ./build/zephyr/zephyr.exe
+
+    - name: GPIO (qemu)
       run: |
-        cd $ZEPHYR_BASE
-        west build -b native_posix_64 -p always $GB/tests/subsys/greybus/gpio
-        ./build/zephyr/zephyr.exe
+        cd ${ZEPHYR_BASE}
+        twister -i -p qemu_cortex_m3 -T ${GB}/tests/subsys/greybus/gpio
 
     - name: native_posix_64 [tcp] [gpio]
       run: |
-        cd $ZEPHYR_BASE
-        west build -b native_posix_64 -p always $GB/samples/subsys/greybus/net
+        cd ${ZEPHYR_BASE}
+        west build -b native_posix_64 -p always ${GB}/samples/subsys/greybus/net
 
     - name: cc1352r1_launchxl [tcp] [ieee802154] [gpio] [i2c]
       run: |
-        cd $ZEPHYR_BASE
-        west build -b cc1352r1_launchxl -p always $GB/samples/subsys/greybus/net -- -DOVERLAY_CONFIG=overlay-802154.conf  -DCONFIG_NET_CONFIG_IEEE802154_DEV_NAME=\"IEEE802154_0\"  -DCONFIG_IEEE802154_CC13XX_CC26XX=y  -DCONFIG_IEEE802154_CC13XX_CC26XX_SUB_GHZ=n
+        cd ${ZEPHYR_BASE}
+        west build -b cc1352r1_launchxl -p always ${GB}/samples/subsys/greybus/net -- -DOVERLAY_CONFIG=overlay-802154.conf  -DCONFIG_NET_CONFIG_IEEE802154_DEV_NAME=\"IEEE802154_0\"  -DCONFIG_IEEE802154_CC13XX_CC26XX=y  -DCONFIG_IEEE802154_CC13XX_CC26XX_SUB_GHZ=n
 
     - name: cc1352r1_launchxl [tcp] [ieee802154g] [gpio] [i2c]
       run: |
-        cd $ZEPHYR_BASE
-        west build -b cc1352r1_launchxl -p always $GB/samples/subsys/greybus/net -- -DOVERLAY_CONFIG=overlay-802154-subg.conf  -DCONFIG_NET_CONFIG_IEEE802154_DEV_NAME=\"IEEE802154_1\"  -DCONFIG_IEEE802154_CC13XX_CC26XX=n  -DCONFIG_IEEE802154_CC13XX_CC26XX_SUB_GHZ=y
+        cd ${ZEPHYR_BASE}
+        west build -b cc1352r1_launchxl -p always ${GB}/samples/subsys/greybus/net -- -DOVERLAY_CONFIG=overlay-802154-subg.conf  -DCONFIG_NET_CONFIG_IEEE802154_DEV_NAME=\"IEEE802154_1\"  -DCONFIG_IEEE802154_CC13XX_CC26XX=n  -DCONFIG_IEEE802154_CC13XX_CC26XX_SUB_GHZ=y
 
     - name: cc1352r1_launchxl [uart] [gpio] [i2c]
       run: |
-        cd $ZEPHYR_BASE
-        west build -b cc1352r1_launchxl -p always $GB/samples/subsys/greybus/uart
+        cd ${ZEPHYR_BASE}
+        west build -b cc1352r1_launchxl -p always ${GB}/samples/subsys/greybus/uart
 
     - name: cc1352r_sensortag [tcp] [ieee802154] [gpio] [i2c] [spi]
       run: |
-        cd $ZEPHYR_BASE
-        west build -b cc1352r_sensortag -p always $GB/samples/subsys/greybus/net -- -DOVERLAY_CONFIG=overlay-802154.conf  -DCONFIG_NET_CONFIG_IEEE802154_DEV_NAME=\"IEEE802154_0\"  -DCONFIG_IEEE802154_CC13XX_CC26XX=y  -DCONFIG_IEEE802154_CC13XX_CC26XX_SUB_GHZ=n
+        cd ${ZEPHYR_BASE}
+        west build -b cc1352r_sensortag -p always ${GB}/samples/subsys/greybus/net -- -DOVERLAY_CONFIG=overlay-802154.conf  -DCONFIG_NET_CONFIG_IEEE802154_DEV_NAME=\"IEEE802154_0\"  -DCONFIG_IEEE802154_CC13XX_CC26XX=y  -DCONFIG_IEEE802154_CC13XX_CC26XX_SUB_GHZ=n
 
     - name: cc1352r_sensortag [tcp] [ieee802154g] [gpio] [i2c] [spi]
       run: |
-        cd $ZEPHYR_BASE
-        west build -b cc1352r_sensortag -p always $GB/samples/subsys/greybus/net -- -DOVERLAY_CONFIG=overlay-802154-subg.conf  -DCONFIG_NET_CONFIG_IEEE802154_DEV_NAME=\"IEEE802154_1\"  -DCONFIG_IEEE802154_CC13XX_CC26XX=n  -DCONFIG_IEEE802154_CC13XX_CC26XX_SUB_GHZ=y
+        cd ${ZEPHYR_BASE}
+        west build -b cc1352r_sensortag -p always ${GB}/samples/subsys/greybus/net -- -DOVERLAY_CONFIG=overlay-802154-subg.conf  -DCONFIG_NET_CONFIG_IEEE802154_DEV_NAME=\"IEEE802154_1\"  -DCONFIG_IEEE802154_CC13XX_CC26XX=n  -DCONFIG_IEEE802154_CC13XX_CC26XX_SUB_GHZ=y
 
     - name: cc1352r_sensortag [uart] [gpio] [i2c] [spi]
       run: |
-        cd $ZEPHYR_BASE
-        west build -b cc1352r_sensortag -p always $GB/samples/subsys/greybus/uart
+        cd ${ZEPHYR_BASE}
+        west build -b cc1352r_sensortag -p always ${GB}/samples/subsys/greybus/uart
 
     - name: nrf52840dk_nrf52840 [tcp] [ble] [gpio]
       run: |
-        cd $ZEPHYR_BASE
-        west build -b nrf52840dk_nrf52840 -p always $GB/samples/subsys/greybus/net -- -DOVERLAY_CONFIG=overlay-bt.conf
+        cd ${ZEPHYR_BASE}
+        west build -b nrf52840dk_nrf52840 -p always ${GB}/samples/subsys/greybus/net -- -DOVERLAY_CONFIG=overlay-bt.conf
 
     - name: nrf52840dk_nrf52840 [tcp] [ieee802154] [gpio]
       run: |
-        cd $ZEPHYR_BASE
-        west build -b nrf52840dk_nrf52840 -p always $GB/samples/subsys/greybus/net -- -DOVERLAY_CONFIG=overlay-802154.conf
+        cd ${ZEPHYR_BASE}
+        west build -b nrf52840dk_nrf52840 -p always ${GB}/samples/subsys/greybus/net -- -DOVERLAY_CONFIG=overlay-802154.conf
 
-# sanity check seems to occasionally timeout and cause failures so disabling for now
-#    - name: Run Sample Applications in Sanity Check Script
+# TODO: would be great to fully utilize twister's capabilities here
+#    - name: Run Sample through Twister
 #      run: |
-#        cd zephyr
-#        export ZEPHYR_BASE=`pwd`
-#        export ZEPHYR_EXTRA_MODULES=`pwd`/../greybus
-#        export PATH=`pwd`/scripts:$PATH
-#        export ZEPHYR_TOOLCHAIN_VARIANT=zephyr
-#        export ZEPHYR_SDK_INSTALL_DIR=/opt/sdk/zephyr-sdk-0.11.4
-#        ./scripts/sanitycheck -T ../greybus/samples/subsys/greybus
+#        cd ${ZEPHYR_BASE}
+#        twister -i -p native_posix_64 -T ${GB}/samples/subsys/greybus/net
 
