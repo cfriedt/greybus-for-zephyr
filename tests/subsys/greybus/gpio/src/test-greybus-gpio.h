@@ -16,6 +16,12 @@ extern "C" {
 #include <sys/util.h>
 #include <ztest.h>
 
+#ifdef CONFIG_QEMU_TARGET
+/* Dirty hack because the Qemu GPIO does not emulate GPIO well enough */
+#define GPIO_DEV_NAME "GPIO_42"
+#define GPIO_PIN_OUT 0
+#define GPIO_PIN_IN 1
+#else
 #if DT_NODE_HAS_STATUS(DT_INST(0, test_greybus_gpio), okay)
 /* Execution of the test requires hardware configuration described in
  * devicetree.  See the test,gpio_basic_api binding local to this test
@@ -42,6 +48,7 @@ extern "C" {
 /* For build-only testing use fixed pins. */
 #define GPIO_PIN_OUT 2
 #define GPIO_PIN_IN 3
+#endif
 #endif
 
 #ifdef __cplusplus

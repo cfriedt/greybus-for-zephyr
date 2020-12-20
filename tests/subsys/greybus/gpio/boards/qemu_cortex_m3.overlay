@@ -1,0 +1,117 @@
+/*
+ * Copyright (c) 2020 Friedt Professional Engineering Services, Inc
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+ #include <dt-bindings/greybus/greybus.h>
+
+/ {
+	resources {
+		compatible = "test,greybus-gpio";
+		out-gpios = <&gpio42 0 0>;
+		in-gpios = <&gpio42 1 0>;
+	};
+
+	greybus0: greybus0 {
+		compatible = "zephyr,greybus";
+		label = "GREYBUS_0";
+		greybus;
+	};
+	
+    gpio42: gpio@4200 {
+        status = "okay";
+        compatible = "zephyr,gpio-emul";
+        reg = <0x4200 0x4>;
+        label = "GPIO_42";
+        rising-edge;
+        falling-edge;
+        high-level;
+        low-level;
+        gpio-controller;
+        #gpio-cells = <2>;
+    };
+};
+
+&gpio42 {
+	status = "okay";
+	ngpios = <2>;
+};
+
+&greybus0 {
+	label = "GREYBUS_0";
+	status = "okay";
+	/* defaults in effect, so this isn't necessary */
+	version-major = <GREYBUS_VERSION_MAJOR>;
+	version-minor = <GREYBUS_VERSION_MINOR>;
+
+	gbstring1: gbstring1 {
+		label = "GBSTRING_1";
+		status = "okay";
+		compatible = "zephyr,greybus-string";
+		id = <1>;
+		greybus-string = "Zephyr Project RTOS";
+	};
+
+	gbstring2: gbstring2 {
+		label = "GBSTRING_2";
+		status = "okay";
+		compatible = "zephyr,greybus-string";
+		id = <2>;
+		greybus-string = "Greybus Service Sample Application";
+	};
+
+	gbinterface0 {
+		label = "GBINTERFACE_0";
+		status = "okay";
+		compatible = "zephyr,greybus-interface";
+		vendor-string-id = <&gbstring1>;
+		product-string-id = <&gbstring2>;
+		greybus-interface;
+	};
+
+	gbbundle0 {
+		label = "GBBUNDLE_0";
+		status = "okay";
+		compatible = "zephyr,greybus-bundle";
+		greybus-bundle;
+		/* Control Bundle 0
+		 * Note: control bundle 0 and control cport 0 are optional
+		 * Since instance numbers automatically begin at 0, the id
+		 * is a mandatory field for bundles and cports.
+		 */
+		id = <CONTROL_BUNDLE_ID>;
+		bundle-class = <BUNDLE_CLASS_CONTROL>;
+
+		gbcontrol0 {
+			label = "GBCONTROL_0";
+			status = "okay";
+			compatible = "zephyr,greybus-control";
+			greybus-controller;
+			/* Control CPort 0
+			 * Note: control bundle 0 and control cport 0 are optional
+			 * Since instance numbers automatically begin at 0, the id
+			 * is a mandatory field for bundles and cports.
+			 */
+			id = <CONTROL_CPORT_ID>;
+			cport-protocol = <CPORT_PROTOCOL_CONTROL>; 
+		};
+	};
+	
+	gbbundle1 {
+		label = "GBBUNDLE_1";
+		status = "okay";
+		compatible = "zephyr,greybus-bundle";
+		greybus-bundle;
+		id = <1>;
+		bundle-class = <BUNDLE_CLASS_BRIDGED_PHY>;		
+				
+		gbgpio0 {
+			label = "GBGPIO_0";
+			status = "okay";
+			compatible = "zephyr,greybus-gpio-controller";
+			greybus-gpio-controller = <&gpio42>;
+			id = <1>;
+			cport-protocol = <CPORT_PROTOCOL_GPIO>;
+		};
+	};
+};
