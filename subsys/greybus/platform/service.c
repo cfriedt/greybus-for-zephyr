@@ -40,20 +40,19 @@ gb_transport_get_backend(void)
 	return xport;
 }
 
-int greybus_service_init(const struct device *bus)
+static int greybus_service_init(const struct device *bus)
 {
     int r;
 	uint8_t *mnfb;
 	size_t mnfb_size;
     unsigned int *cports = NULL;
 
-    LOG_DBG("Greybus initializing..");
+    if (xport != NULL) {
+        LOG_ERR("service already initialized");
+        return -EALREADY;
+    }
 
-	r = gb_service_deferred_init();
-	if (r < 0) {
-		LOG_ERR("gb_service_deferred_init() failed: %d", r);
-		goto out;
-	}
+    LOG_DBG("Greybus initializing..");
 
 	bus = device_get_binding(GREYBUS_BUS_NAME);
 	if (NULL == bus) {
@@ -114,4 +113,4 @@ out:
     return r;
 }
 
-//SYS_INIT(greybus_service_init, POST_KERNEL, CONFIG_APPLICATION_INIT_PRIORITY);
+SYS_INIT(greybus_service_init, APPLICATION, CONFIG_APPLICATION_INIT_PRIORITY);

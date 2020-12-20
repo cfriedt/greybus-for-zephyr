@@ -13,7 +13,6 @@ zephyr_library_sources(
 
 	platform/manifest.c
 	platform/platform.c
-	platform/deferred-init.c
 
 	platform/service.c
 
