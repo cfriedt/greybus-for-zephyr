@@ -1,5 +1,5 @@
 diff --git a/boards/posix/native_posix/native_posix.dts b/boards/posix/native_posix/native_posix.dts
-index 5c828fb483d7..a6ea0110f195 100644
+index 5c828fb483d7..0498414466ef 100644
 --- a/boards/posix/native_posix/native_posix.dts
 +++ b/boards/posix/native_posix/native_posix.dts
 @@ -7,6 +7,7 @@
@@ -26,30 +26,28 @@ index 5c828fb483d7..a6ea0110f195 100644
  	};
  
  	flashcontroller0: flash-controller@0 {
-@@ -130,4 +140,18 @@
+@@ -130,4 +140,16 @@
  		label = "EC_HOST_CMD_SIM";
  	};
  
 +	gpio0: gpio@800 {
 +		status = "okay";
 +		compatible = "zephyr,gpio-emul";
-+		reg = <0x800 0x4>;
 +		label = "GPIO_0";
++		reg = <0x800 0x4>;
 +		rising-edge;
 +		falling-edge;
-+		dual-edge;
 +		high-level;
 +		low-level;
-+		dual-level;
 +		gpio-controller;
 +		#gpio-cells = <2>;
 +	};
  };
 diff --git a/drivers/gpio/CMakeLists.txt b/drivers/gpio/CMakeLists.txt
-index ff30e5451153..81b36349568c 100644
+index a93b64a84098..58af8cd0461d 100644
 --- a/drivers/gpio/CMakeLists.txt
 +++ b/drivers/gpio/CMakeLists.txt
-@@ -31,6 +31,7 @@ zephyr_library_sources_ifdef(CONFIG_GPIO_LITEX      gpio_litex.c)
+@@ -33,6 +33,7 @@ zephyr_library_sources_ifdef(CONFIG_GPIO_LITEX      gpio_litex.c)
  zephyr_library_sources_ifdef(CONFIG_GPIO_LPC11U6X   gpio_lpc11u6x.c)
  zephyr_library_sources_ifdef(CONFIG_GPIO_XLNX_AXI   gpio_xlnx_axi.c)
  zephyr_library_sources_ifdef(CONFIG_GPIO_NPCX       gpio_npcx.c)
@@ -58,10 +56,10 @@ index ff30e5451153..81b36349568c 100644
  zephyr_library_sources_ifdef(CONFIG_GPIO_SHELL      gpio_shell.c)
  
 diff --git a/drivers/gpio/Kconfig b/drivers/gpio/Kconfig
-index 81d86851b3bf..8c5c6dd4c8ba 100644
+index af015ba5b517..c54b922c6459 100644
 --- a/drivers/gpio/Kconfig
 +++ b/drivers/gpio/Kconfig
-@@ -79,4 +79,6 @@ source "drivers/gpio/Kconfig.xlnx"
+@@ -81,4 +81,6 @@ source "drivers/gpio/Kconfig.xlnx"
  
  source "drivers/gpio/Kconfig.npcx"
  
@@ -70,7 +68,7 @@ index 81d86851b3bf..8c5c6dd4c8ba 100644
  endif # GPIO
 diff --git a/drivers/gpio/Kconfig.emul b/drivers/gpio/Kconfig.emul
 new file mode 100644
-index 000000000000..3b596c251d64
+index 000000000000..7d8548bb6a5a
 --- /dev/null
 +++ b/drivers/gpio/Kconfig.emul
 @@ -0,0 +1,17 @@
@@ -80,7 +78,7 @@ index 000000000000..3b596c251d64
 +# SPDX-License-Identifier: Apache-2.0
 +
 +config GPIO_EMUL
-+	bool "Emulated GPIO driver"
++	bool "[EXPERIMENTAL] Emulated GPIO driver"
 +	help
 +	  Enable the emulated GPIO driver. Mainly used for testing, this
 +	  driver allows for an arbitrary number of emulated GPIO controllers
@@ -93,10 +91,10 @@ index 000000000000..3b596c251d64
 +	  If unsure, say N.
 diff --git a/drivers/gpio/gpio_emul.c b/drivers/gpio/gpio_emul.c
 new file mode 100644
-index 000000000000..b3aec93ae460
+index 000000000000..88acf9bb203d
 --- /dev/null
 +++ b/drivers/gpio/gpio_emul.c
-@@ -0,0 +1,686 @@
+@@ -0,0 +1,705 @@
 +/*
 + * Copyright (c) 2020 Friedt Professional Engineering Services, Inc
 + *
@@ -136,10 +134,8 @@ index 000000000000..b3aec93ae460
 +enum gpio_emul_interrupt_cap {
 +	GPIO_EMUL_INT_CAP_EDGE_RISING = 1,
 +	GPIO_EMUL_INT_CAP_EDGE_FALLING = 2,
-+	GPIO_EMUL_INT_CAP_EDGE_BOTH = 4,
 +	GPIO_EMUL_INT_CAP_LEVEL_HIGH = 16,
 +	GPIO_EMUL_INT_CAP_LEVEL_LOW = 32,
-+	GPIO_EMUL_INT_CAP_LEVEL_BOTH = 64,
 +};
 +
 +/**
@@ -183,7 +179,7 @@ index 000000000000..b3aec93ae460
 +	/** Common @ref gpio_driver_data */
 +	struct gpio_driver_data common;
 +	/** Pointer to an array of flags is @a num_pins in size */
-+	uint32_t *flags;
++	gpio_flags_t *flags;
 +	/** Input values for each pin */
 +	gpio_port_value_t input_vals;
 +	/** Output values for each pin */
@@ -210,17 +206,17 @@ index 000000000000..b3aec93ae460
 + * @return a mask of the pins with matching @p flags
 + */
 +static gpio_port_pins_t
-+get_pins_with_flags(const struct device *port, uint32_t mask,
-+	uint32_t flags)
++get_pins_with_flags(const struct device *port, gpio_port_pins_t mask,
++	gpio_flags_t flags)
 +{
 +	size_t i;
-+	gpio_port_pins_t matched;
++	gpio_port_pins_t matched = 0;
 +	struct gpio_emul_data *drv_data =
 +		(struct gpio_emul_data *)port->data;
 +	const struct gpio_emul_config *config =
 +		(const struct gpio_emul_config *)port->config;
 +
-+	for (matched = 0, i = 0; i < config->num_pins; ++i) {
++	for (i = 0; i < config->num_pins; ++i) {
 +		if ((drv_data->flags[i] & mask) == flags) {
 +			matched |= BIT(i);
 +		}
@@ -235,6 +231,8 @@ index 000000000000..b3aec93ae460
 + * The caller must ensure that @ref gpio_emul_data.mu is locked.
 + *
 + * @param port The emulated GPIO device pointer
++ *
++ * @return a mask of pins that are configured as @ref GPIO_INPUT
 + */
 +static inline gpio_port_pins_t get_input_pins(const struct device *port)
 +{
@@ -247,16 +245,34 @@ index 000000000000..b3aec93ae460
 + * The caller must ensure that @ref gpio_emul_data.mu is locked.
 + *
 + * @param port The emulated GPIO device pointer
++ *
++ * @return a mask of pins that are configured as @ref GPIO_OUTPUT
 + */
 +static inline gpio_port_pins_t get_output_pins(const struct device *port)
 +{
 +	return get_pins_with_flags(port, GPIO_OUTPUT, GPIO_OUTPUT);
 +}
 +
++/**
++ * Check if @p port has capabilities specified in @p caps
++ *
++ * @param port The emulated GPIO device pointer
++ * @param caps A bitmask of @ref gpio_emul_interrupt_cap
++ *
++ * @return true if all @p caps are present, otherwise false
++ */
++static inline bool gpio_emul_config_has_caps(const struct device *port,
++		int caps) {
++
++	const struct gpio_emul_config *config =
++		(const struct gpio_emul_config *)port->config;
++
++	return (caps & config->interrupt_caps) == caps;
++}
++
 +/*
 + * GPIO backend API (for setting input pin values)
 + */
-+
 +static void gpio_emul_gen_interrupt_bits(const struct device *port,
 +					gpio_port_pins_t mask,
 +					gpio_port_value_t prev_values,
@@ -283,35 +299,36 @@ index 000000000000..b3aec93ae460
 +
 +		switch (drv_data->flags[i] & GPIO_EMUL_INT_BITMASK) {
 +		case GPIO_INT_EDGE_RISING:
-+			if (config->interrupt_caps & GPIO_EMUL_INT_CAP_EDGE_RISING) {
++			if (gpio_emul_config_has_caps(port, GPIO_EMUL_INT_CAP_EDGE_RISING)) {
 +				if (detect_edge && !prev_bit && bit) {
 +					*interrupts |= BIT(i);
 +				}
 +			}
 +			break;
 +		case GPIO_INT_EDGE_FALLING:
-+			if (config->interrupt_caps & GPIO_EMUL_INT_CAP_EDGE_FALLING) {
++			if (gpio_emul_config_has_caps(port, GPIO_EMUL_INT_CAP_EDGE_FALLING)) {
 +				if (detect_edge && prev_bit && !bit) {
 +					*interrupts |= BIT(i);
 +				}
 +			}
 +			break;
 +		case GPIO_INT_EDGE_BOTH:
-+			if (config->interrupt_caps & GPIO_EMUL_INT_CAP_EDGE_BOTH) {
++			if (gpio_emul_config_has_caps(port,
++				GPIO_EMUL_INT_CAP_EDGE_RISING | GPIO_EMUL_INT_CAP_EDGE_FALLING)) {
 +				if (detect_edge && prev_bit != bit) {
 +					*interrupts |= BIT(i);
 +				}
 +			}
 +			break;
 +		case GPIO_INT_LEVEL_LOW:
-+			if (config->interrupt_caps & GPIO_EMUL_INT_CAP_LEVEL_LOW) {
++			if (gpio_emul_config_has_caps(port, GPIO_EMUL_INT_CAP_LEVEL_LOW)) {
 +				if (!bit) {
 +					*interrupts |= BIT(i);
 +				}
 +			}
 +			break;
 +		case GPIO_INT_LEVEL_HIGH:
-+			if (config->interrupt_caps & GPIO_EMUL_INT_CAP_LEVEL_HIGH) {
++			if (gpio_emul_config_has_caps(port, GPIO_EMUL_INT_CAP_LEVEL_HIGH)) {
 +				if (bit) {
 +					*interrupts |= BIT(i);
 +				}
@@ -348,11 +365,12 @@ index 000000000000..b3aec93ae460
 +	struct gpio_emul_data *drv_data =
 +		(struct gpio_emul_data *)port->data;
 +
-+	for (gpio_emul_gen_interrupt_bits(port, mask, prev_values, values,
-+					 &interrupts, true);
-+	     interrupts; gpio_emul_gen_interrupt_bits(
-+		     port, mask, prev_values, values, &interrupts, false)) {
++	gpio_emul_gen_interrupt_bits(port, mask, prev_values, values,
++		&interrupts, true);
++	while (interrupts != 0) {
 +		gpio_fire_callbacks(&drv_data->callbacks, port, interrupts);
++		gpio_emul_gen_interrupt_bits(port, mask, prev_values, values,
++			&interrupts, false);
 +	}
 +}
 +
@@ -435,7 +453,7 @@ index 000000000000..b3aec93ae460
 +}
 +
 +/* documented in drivers/gpio/gpio_emul.h */
-+int gpio_emul_flags_get(const struct device *port, gpio_pin_t pin, uint32_t *flags)
++int gpio_emul_flags_get(const struct device *port, gpio_pin_t pin, gpio_flags_t *flags)
 +{
 +	struct gpio_emul_data *drv_data =
 +		(struct gpio_emul_data *)port->data;
@@ -609,31 +627,33 @@ index 000000000000..b3aec93ae460
 +	return 0;
 +}
 +
-+static bool gpio_emul_level_trigger_supported(const struct gpio_emul_config *config,
++static bool gpio_emul_level_trigger_supported(const struct device *port,
 +					     enum gpio_int_trig trig)
 +{
 +	switch (trig) {
 +	case GPIO_INT_TRIG_LOW:
-+		return (config->interrupt_caps & GPIO_EMUL_INT_CAP_LEVEL_LOW) != 0;
++		return gpio_emul_config_has_caps(port, GPIO_EMUL_INT_CAP_LEVEL_LOW);
 +	case GPIO_INT_TRIG_HIGH:
-+		return (config->interrupt_caps & GPIO_EMUL_INT_CAP_LEVEL_HIGH) != 0;
++		return gpio_emul_config_has_caps(port, GPIO_EMUL_INT_CAP_LEVEL_HIGH);
 +	case GPIO_INT_TRIG_BOTH:
-+		return (config->interrupt_caps & GPIO_EMUL_INT_CAP_LEVEL_BOTH) != 0;
++		return gpio_emul_config_has_caps(port, GPIO_EMUL_INT_CAP_LEVEL_LOW
++			| GPIO_EMUL_INT_CAP_LEVEL_HIGH);
 +	default:
 +		return false;
 +	}
 +}
 +
-+static bool gpio_emul_edge_trigger_supported(const struct gpio_emul_config *config,
++static bool gpio_emul_edge_trigger_supported(const struct device *port,
 +					    enum gpio_int_trig trig)
 +{
 +	switch (trig) {
 +	case GPIO_INT_TRIG_LOW:
-+		return (config->interrupt_caps & GPIO_EMUL_INT_CAP_LEVEL_LOW) != 0;
++		return gpio_emul_config_has_caps(port, GPIO_EMUL_INT_CAP_EDGE_FALLING);
 +	case GPIO_INT_TRIG_HIGH:
-+		return (config->interrupt_caps & GPIO_EMUL_INT_CAP_LEVEL_HIGH) != 0;
++		return gpio_emul_config_has_caps(port, GPIO_EMUL_INT_CAP_EDGE_RISING);
 +	case GPIO_INT_TRIG_BOTH:
-+		return (config->interrupt_caps & GPIO_EMUL_INT_CAP_LEVEL_BOTH) != 0;
++		return gpio_emul_config_has_caps(port, GPIO_EMUL_INT_CAP_EDGE_FALLING
++			| GPIO_EMUL_INT_CAP_EDGE_RISING);
 +	default:
 +		return false;
 +	}
@@ -665,13 +685,13 @@ index 000000000000..b3aec93ae460
 +	}
 +
 +	if (mode == GPIO_INT_MODE_LEVEL) {
-+		if (!gpio_emul_level_trigger_supported(config, trig)) {
++		if (!gpio_emul_level_trigger_supported(port, trig)) {
 +			return -ENOTSUP;
 +		}
 +	}
 +
 +	if (mode == GPIO_INT_MODE_EDGE) {
-+		if (!gpio_emul_edge_trigger_supported(config, trig)) {
++		if (!gpio_emul_edge_trigger_supported(port, trig)) {
 +			return -ENOTSUP;
 +		}
 +	}
@@ -710,7 +730,7 @@ index 000000000000..b3aec93ae460
 +	return gpio_manage_callback(&drv_data->callbacks, cb, set);
 +}
 +
-+static uint32_t gpio_emul_get_pending_int(const struct device *dev)
++static gpio_port_pins_t gpio_emul_get_pending_int(const struct device *dev)
 +{
 +	struct gpio_emul_data *drv_data =
 +		(struct gpio_emul_data *)dev->data;
@@ -748,19 +768,15 @@ index 000000000000..b3aec93ae460
 +		* GPIO_EMUL_INT_CAP_EDGE_RISING				\
 +	+ DT_INST_PROP(_num, falling_edge)				\
 +		* GPIO_EMUL_INT_CAP_EDGE_FALLING			\
-+	+ DT_INST_PROP(_num, dual_edge)					\
-+		* GPIO_EMUL_INT_CAP_EDGE_BOTH				\
 +	+ DT_INST_PROP(_num, high_level)				\
 +		* GPIO_EMUL_INT_CAP_LEVEL_HIGH				\
 +	+ DT_INST_PROP(_num, low_level)					\
 +		* GPIO_EMUL_INT_CAP_LEVEL_LOW				\
-+	+ DT_INST_PROP(_num, dual_level)				\
-+		* GPIO_EMUL_INT_CAP_LEVEL_BOTH				\
 +	)
 +
 +#define DEFINE_GPIO_EMUL(_num)						\
 +									\
-+	static uint32_t							\
++	static gpio_flags_t						\
 +		gpio_emul_flags_##_num[DT_INST_PROP(_num, ngpios)];	\
 +									\
 +	static const struct gpio_emul_config gpio_emul_config_##_num = {\
@@ -776,8 +792,9 @@ index 000000000000..b3aec93ae460
 +		.flags = gpio_emul_flags_##_num,			\
 +	};								\
 +									\
-+	DEVICE_DT_INST_DEFINE(_num,					\
-+			    gpio_emul_init, NULL, &gpio_emul_data_##_num,\
++	DEVICE_DT_INST_DEFINE(_num, gpio_emul_init,			\
++			    device_pm_control_nop,			\
++			    &gpio_emul_data_##_num,			\
 +			    &gpio_emul_config_##_num, POST_KERNEL,	\
 +			    CONFIG_KERNEL_INIT_PRIORITY_DEVICE,		\
 +			    &gpio_emul_driver)
@@ -785,10 +802,10 @@ index 000000000000..b3aec93ae460
 +DT_INST_FOREACH_STATUS_OKAY(DEFINE_GPIO_EMUL);
 diff --git a/dts/bindings/gpio/zephyr,gpio-emul.yaml b/dts/bindings/gpio/zephyr,gpio-emul.yaml
 new file mode 100644
-index 000000000000..9a2459ccefbc
+index 000000000000..69ac5a71481c
 --- /dev/null
 +++ b/dts/bindings/gpio/zephyr,gpio-emul.yaml
-@@ -0,0 +1,40 @@
+@@ -0,0 +1,38 @@
 +# Copyright 2020, Friedt Professional Engineering Services, Inc
 +# SPDX-License-Identifier: Apache-2.0
 +
@@ -806,21 +823,19 @@ index 000000000000..9a2459ccefbc
 +      required: true
 +
 +    rising-edge:
++      description: Enables support for rising edge interrupt detection
 +      type: boolean
 +
 +    falling-edge:
-+      type: boolean
-+
-+    dual-edge:
++      description: Enables support for falling edge interrupt detection
 +      type: boolean
 +
 +    high-level:
++      description: Enables support for high level interrupt detection
 +      type: boolean
 +
 +    low-level:
-+      type: boolean
-+
-+    dual-level:
++      description: Enables support for low level interrupt detection
 +      type: boolean
 +
 +    "#gpio-cells":
@@ -831,7 +846,7 @@ index 000000000000..9a2459ccefbc
 +  - flags
 diff --git a/include/drivers/gpio/gpio_emul.h b/include/drivers/gpio/gpio_emul.h
 new file mode 100644
-index 000000000000..712e8721973d
+index 000000000000..9983a0e05472
 --- /dev/null
 +++ b/include/drivers/gpio/gpio_emul.h
 @@ -0,0 +1,132 @@
@@ -956,7 +971,7 @@ index 000000000000..712e8721973d
 + * @return 0 on success
 + * @return -EINVAL if an invalid argument is provided
 + */
-+int gpio_emul_flags_get(const struct device *port, gpio_pin_t pin, uint32_t *flags);
++int gpio_emul_flags_get(const struct device *port, gpio_pin_t pin, gpio_flags_t *flags);
 +
 +/**
 + * @}
@@ -1014,6 +1029,18 @@ index 000000000000..02b0040e8a6d
 + * SPDX-License-Identifier: Apache-2.0
 + */
 +#include "native_posix.overlay"
+diff --git a/tests/drivers/gpio/gpio_basic_api/CMakeLists.txt b/tests/drivers/gpio/gpio_basic_api/CMakeLists.txt
+index f2926c66c924..5d2664e2335a 100644
+--- a/tests/drivers/gpio/gpio_basic_api/CMakeLists.txt
++++ b/tests/drivers/gpio/gpio_basic_api/CMakeLists.txt
+@@ -4,5 +4,6 @@ cmake_minimum_required(VERSION 3.13.1)
+ find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
+ project(gpio_basic_api)
+ 
+-FILE(GLOB app_sources src/*.c)
++FILE(GLOB app_sources src/main.c src/test*.c)
+ target_sources(app PRIVATE ${app_sources})
++target_sources_ifdef(CONFIG_GPIO_EMUL app PRIVATE src/gpio_emul_callback.c)
 diff --git a/tests/drivers/gpio/gpio_basic_api/boards/native_posix.conf b/tests/drivers/gpio/gpio_basic_api/boards/native_posix.conf
 new file mode 100644
 index 000000000000..cc7d82349cbd
@@ -1071,17 +1098,15 @@ index 000000000000..02b0040e8a6d
 +#include "native_posix.overlay"
 diff --git a/tests/drivers/gpio/gpio_basic_api/src/gpio_emul_callback.c b/tests/drivers/gpio/gpio_basic_api/src/gpio_emul_callback.c
 new file mode 100644
-index 000000000000..8184bd316d6f
+index 000000000000..0752795c6488
 --- /dev/null
 +++ b/tests/drivers/gpio/gpio_basic_api/src/gpio_emul_callback.c
-@@ -0,0 +1,73 @@
+@@ -0,0 +1,69 @@
 +/*
 + * Copyright (c) 2020 Friedt Professional Engineering Services, Inc
 + *
 + * SPDX-License-Identifier: Apache-2.0
 + */
-+
-+#ifdef CONFIG_GPIO_EMUL
 +
 +#include <device.h>
 +#include <drivers/gpio.h>
@@ -1146,8 +1171,6 @@ index 000000000000..8184bd316d6f
 +		return;
 +	}
 +}
-+
-+#endif /* CONFIG_GPIO_EMUL */
 diff --git a/tests/drivers/gpio/gpio_basic_api/src/main.c b/tests/drivers/gpio/gpio_basic_api/src/main.c
 index bedf96f2f7a3..3f90447e9322 100644
 --- a/tests/drivers/gpio/gpio_basic_api/src/main.c
