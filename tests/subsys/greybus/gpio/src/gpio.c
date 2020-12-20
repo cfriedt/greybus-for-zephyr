@@ -100,9 +100,6 @@ void test_greybus_setup(void) {
 
 	*port = htons(PORT);
 
-	extern int greybus_service_init(const struct device *);
-	greybus_service_init(NULL);
-
 	gpio_dev = (struct device *)device_get_binding(GPIO_DEV_NAME);
 	zassert_not_equal(gpio_dev, NULL, "failed to get device binding for " GPIO_DEV_NAME);
 
