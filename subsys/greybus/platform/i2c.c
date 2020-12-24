@@ -83,10 +83,10 @@ static int greybus_i2c_control_init(const struct device *dev) {
         static struct greybus_i2c_control_data									\
 			greybus_i2c_control_data_##_num;									\
         																		\
-        DEVICE_INIT(i2c_i2c_control_##_num, "GBI2C_" #_num,					\
-                            greybus_i2c_control_init,					\
+        DEVICE_DT_INST_DEFINE(_num,					\
+                            greybus_i2c_control_init, NULL,				\
 							&greybus_i2c_control_data_##_num,					\
                             &greybus_i2c_control_config_##_num, POST_KERNEL,	\
-                            CONFIG_GREYBUS_CPORT_INIT_PRIORITY);
+                            CONFIG_GREYBUS_CPORT_INIT_PRIORITY, NULL);
 
 DT_INST_FOREACH_STATUS_OKAY(DEFINE_GREYBUS_I2C_CONTROL);

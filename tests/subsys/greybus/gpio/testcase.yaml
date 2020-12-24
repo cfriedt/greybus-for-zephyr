@@ -2,3 +2,25 @@ tests:
   subsys.greybus.gpio:
     tags: greybus
     harness: ztest
+    platform_allow: mps2_an385 qemu_cortex_m3
+  subsys.greybus.gpio.tls:
+    tags: greybus tls
+    harness: ztest
+    # build_only for now due to issues in Zephyr mbedTLS / IPPROTO_TLS_1_2
+    # for details see cfriedt/greybus-for-zephyr#34
+    build_only: True
+    platform_allow: mps2_an385 qemu_x86_64
+    extra_configs:
+      - CONFIG_GREYBUS_ENABLE_TLS=y
+      - CONFIG_GREYBUS_TLS_BUILTIN=y
+      - CONFIG_NET_SOCKETS_SOCKOPT_TLS=y
+      - CONFIG_TLS_CREDENTIALS=y
+      - CONFIG_NET_PKT_RX_COUNT=64
+      - CONFIG_NET_PKT_TX_COUNT=64
+      - CONFIG_NET_BUF_RX_COUNT=64
+      - CONFIG_NET_BUF_TX_COUNT=64
+      - CONFIG_TLS_MAX_CREDENTIALS_NUMBER=5
+      - CONFIG_NET_SOCKETS_TLS_MAX_CONTEXTS=10
+      - CONFIG_ZTEST_STACKSIZE=8192
+      - CONFIG_HEAP_MEM_POOL_SIZE=32768
+      - CONFIG_PTHREAD_DYNAMIC_STACK_DEFAULT_SIZE=8192

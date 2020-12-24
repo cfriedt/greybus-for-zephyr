@@ -20,11 +20,21 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-/* For some reason, not declared even with _GNU_SOURCE */
-extern int pthread_setname_np(pthread_t thread, const char *name);
+/*
+ * There seem to be a number of conflicts between Linux and
+ * Zephyr headers for networking things. So a few things are
+ * defined manually.
+ */
+#define IPPROTO_TLS_1_2 258
+#define TLS_SEC_TAG_LIST 1
+#define TLS_HOSTNAME 2
+#define TLS_PEER_VERIFY 5
+#define TLS_PEER_VERIFY_NONE 0
+#define TLS_PEER_VERIFY_OPTIONAL 1
+#define TLS_PEER_VERIFY_REQUIRED 2
 
-/* For some reason, including <net/net_ip.h> breaks everything
- * I only need these */
+typedef int sec_tag_t;
+
 static inline struct sockaddr_in *net_sin(struct sockaddr *sa)
 {
 	return (struct sockaddr_in *)sa;
@@ -34,6 +44,9 @@ static inline struct sockaddr_in6 *net_sin6(struct sockaddr *sa)
 {
 	return (struct sockaddr_in6 *)sa;
 }
+
+/* For some reason, not declared even with _GNU_SOURCE */
+extern int pthread_setname_np(pthread_t thread, const char *name);
 
 extern int usleep(useconds_t usec);
 
@@ -62,6 +75,11 @@ int usleep(useconds_t usec) {
 LOG_MODULE_REGISTER(greybus_transport_tcpip, CONFIG_GREYBUS_LOG_LEVEL);
 
 #include "transport.h"
+#include "certificate.h"
+
+#ifndef CONFIG_GREYBUS_ENABLE_TLS
+#define CONFIG_GREYBUS_TLS_HOSTNAME ""
+#endif
 
 /* Based on UniPro, from Linux */
 #define CPORT_ID_MAX 4095
@@ -547,6 +565,7 @@ static int sendMessage(int fd, struct gb_operation_hdr *msg)
 	for (remaining = sys_le16_to_cpu(msg->size), offset = 0, written = 0;
 	     remaining; remaining -= written, offset += written, written = 0) {
 
+		LOG_DBG("gb: send(%d, %p, %zu, 0)", fd, &((uint8_t *)msg)[offset], remaining);
 		r = send(fd, &((uint8_t *)msg)[offset], remaining, 0);
 
 		if (r < 0) {
@@ -650,9 +669,15 @@ static int netsetup(size_t num_cports)
 	const int yes = true;
 	int family;
 	uint16_t *port;
+	int proto = IPPROTO_TCP;
 	struct sockaddr sa;
 	socklen_t sa_len;
 
+	if (IS_ENABLED(CONFIG_GREYBUS_TLS_BUILTIN)) {
+		proto = IPPROTO_TLS_1_2;
+	}
+
+	memset(&sa, 0, sizeof(sa));
 	if (IS_ENABLED(CONFIG_NET_IPV6)) {
 		family = AF_INET6;
 		net_sin6(&sa)->sin6_family = AF_INET6;
@@ -672,7 +697,7 @@ static int netsetup(size_t num_cports)
 	*port = htons(GB_TRANSPORT_TCPIP_BASE_PORT);
 
     for(i = 0; i < num_cports; ++i) {
-        fd = socket(family, SOCK_STREAM, 0);
+        fd = socket(family, SOCK_STREAM, proto);
         if (fd == -1) {
             LOG_ERR("socket: %d", errno);
             return -errno;
@@ -686,9 +711,49 @@ static int netsetup(size_t num_cports)
 
         r = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
         if (-1 == r) {
-            LOG_ERR("setsockopt: %d", errno);
+        	LOG_ERR("setsockopt: Failed to set SO_REUSEADDR (%d)", errno);
             return -errno;
         }
+
+		if (IS_ENABLED(CONFIG_GREYBUS_ENABLE_TLS)) {
+			static const sec_tag_t sec_tag_opt[] = {
+#if defined(CONFIG_GREYBUS_TLS_CLIENT_VERIFY_OPTIONAL) \
+	|| defined(CONFIG_GREYBUS_TLS_CLIENT_VERIFY_REQUIRED)
+				GB_TLS_CA_CERT_TAG,
+#endif
+				GB_TLS_SERVER_CERT_TAG,
+			};
+
+			r = setsockopt(fd, SOL_TLS, TLS_SEC_TAG_LIST, sec_tag_opt, sizeof(sec_tag_opt));
+			if (-1 == r) {
+				LOG_ERR("setsockopt: Failed to set SEC_TAG_LIST (%d)", errno);
+				return -errno;
+			}
+
+			r = setsockopt(fd, SOL_TLS, TLS_HOSTNAME, CONFIG_GREYBUS_TLS_HOSTNAME,
+				strlen(CONFIG_GREYBUS_TLS_HOSTNAME));
+			if (-1 == r) {
+				LOG_ERR("setsockopt: Failed to set TLS_HOSTNAME (%d)", errno);
+				return -errno;
+			}
+
+			/* default to no client verification */
+			int verify = TLS_PEER_VERIFY_NONE;
+
+			if (IS_ENABLED(CONFIG_GREYBUS_TLS_CLIENT_VERIFY_OPTIONAL)) {
+				verify = TLS_PEER_VERIFY_OPTIONAL;
+			}
+
+			if (IS_ENABLED(CONFIG_GREYBUS_TLS_CLIENT_VERIFY_REQUIRED)) {
+				verify = TLS_PEER_VERIFY_REQUIRED;
+			}
+
+			r = setsockopt(fd, SOL_TLS, TLS_PEER_VERIFY, &verify, sizeof(verify));
+			if (-1 == r) {
+				LOG_ERR("setsockopt: Failed to set TLS_PEER_VERIFY (%d)", errno);
+				return -errno;
+			}
+		}
 
     	*port = htons(GB_TRANSPORT_TCPIP_BASE_PORT + i);
         r = bind(fd, &sa, sa_len);
@@ -730,13 +795,13 @@ struct gb_transport_backend *gb_transport_backend_init(size_t num_cports) {
         goto cleanup;
     }
 
-	r = pthread_create(&accept_thread, NULL, service_thread, NULL);
-	if (r != 0) {
+    r = pthread_create(&accept_thread, NULL, service_thread, NULL);
+    if (r != 0) {
 		LOG_ERR("pthread_create: %d", r);
 		goto cleanup;
 	}
 
-	(void)pthread_setname_np(accept_thread, "greybus");
+	pthread_setname_np(accept_thread, "greybus");
 
     ret = (struct gb_transport_backend *)&gb_xport;
 
