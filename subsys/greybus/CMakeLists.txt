@@ -15,6 +15,7 @@ zephyr_library_sources(
 	platform/platform.c
 
 	platform/service.c
+	platform/certificate.c
 
 	platform/bundle.c
 	platform/bus.c
@@ -25,7 +26,7 @@ zephyr_library_sources(
 	qsort.c
 )
 
-if(${CONFIG_GREYBUS_MANIFEST_BUILTIN})
+if(CONFIG_GREYBUS_MANIFEST_BUILTIN)
 
   devicetree_unfixed_h_to_mnfs(
 	${PROJECT_BINARY_DIR}/include/generated/devicetree_unfixed.h
@@ -42,6 +43,30 @@ if(${CONFIG_GREYBUS_MANIFEST_BUILTIN})
 	${PROJECT_BINARY_DIR}/include/generated/greybus.mnfb
 	${PROJECT_BINARY_DIR}/include/generated/greybus_mnfb.inc
     )
+endif()
+
+if(CONFIG_GREYBUS_TLS_BUILTIN)
+  set(gen_dir ${ZEPHYR_BINARY_DIR}/include/generated/)
+
+  if(CONFIG_GREYBUS_TLS_CLIENT_VERIFY_OPTIONAL OR CONFIG_GREYBUS_TLS_CLIENT_VERIFY_REQUIRED)
+    generate_inc_file_for_target(
+      app
+      ${CONFIG_GREYBUS_TLS_BUILTIN_CA_CERT}
+      ${gen_dir}/greybus_tls_builtin_ca_cert.inc
+    )
+  endif()
+
+  generate_inc_file_for_target(
+    app
+    ${CONFIG_GREYBUS_TLS_BUILTIN_SERVER_CERT}
+    ${gen_dir}/greybus_tls_builtin_server_cert.inc
+  )
+
+  generate_inc_file_for_target(
+    app
+    ${CONFIG_GREYBUS_TLS_BUILTIN_SERVER_PRIVKEY}
+    ${gen_dir}/greybus_tls_builtin_server_privkey.inc
+  )
 endif()
 
 zephyr_library_sources_ifdef(CONFIG_GREYBUS_XPORT_TCPIP    platform/transport-tcpip.c)
