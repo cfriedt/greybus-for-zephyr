@@ -35,7 +35,6 @@ jobs:
         cd ${ZEPHYR_BASE}
         git apply ${GB}/zephyr-sys-byteorder-posix.patch
         git apply ${GB}/zephyr-gpio-get-direction.patch
-        git apply ${GB}/zephyr-aligned-allocators.patch
         git apply ${GB}/zephyr-dynamic-pthread-stacks.patch
         # "loop-socat.sh &" needs to called in order to run tests under
         # qemu. Otherwise, there is an error like the one below:
