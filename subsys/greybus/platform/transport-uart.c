@@ -24,7 +24,7 @@ LOG_MODULE_REGISTER(greybus_xsport_uart, CONFIG_GREYBUS_LOG_LEVEL);
 static int sendMessage(struct device *dev, struct gb_operation_hdr *msg);
 static void uart_work_fn(struct k_work *work);
 
-static struct device *uart_dev;
+static const struct device *uart_dev;
 
 RING_BUF_DECLARE(uart_rb, UART_RB_SIZE);
 static K_WORK_DEFINE(uart_work, uart_work_fn);

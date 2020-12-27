@@ -19,12 +19,10 @@ LOG_MODULE_REGISTER(greybus_service, CONFIG_GREYBUS_LOG_LEVEL);
 
 #include "transport.h"
 #include "manifest.h"
+#include "certificate.h"
 
 /* Currently only one greybus instance is supported */
 #define GREYBUS_BUS_NAME "GREYBUS_0"
-
-/* Deferred init of some DT nodes required - see defer_init.c */
-extern int gb_service_deferred_init(void);
 
 static struct gb_transport_backend *xport;
 static size_t num_cports;
@@ -52,12 +50,19 @@ static int greybus_service_init(const struct device *bus)
 		return -EALREADY;
 	}
 
+	r = greybus_tls_init();
+	if (r < 0) {
+		LOG_ERR("gb_tls_init() failed: %d", r);
+		goto out;
+	}
+
 	LOG_DBG("Greybus initializing..");
 
 	bus = device_get_binding(GREYBUS_BUS_NAME);
 	if (NULL == bus) {
 		r = -ENODEV;
 		LOG_ERR("failed to get " GREYBUS_BUS_NAME " device");
+		r = -ENODEV;
 		goto out;
 	}
 
@@ -111,6 +116,7 @@ out:
     if (cports != NULL) {
         free(cports);
     }
+
     return r;
 }
 
