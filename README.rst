@@ -49,7 +49,6 @@ Lastly, flash firmware for the chosen ``$BOARD`` using the commands below.
     cd zephyr
     source zephyr-env.sh
     git apply ../greybus/zephyr-gpio-get-direction.patch
-    git apply ../greybus/zephyr-gpio-emul.patch
     git apply ../greybus/zephyr-sys-byteorder-posix.patch
     git apply ../greybus/zephyr-aligned-allocators.patch
     git apply ../greybus/zephyr-dynamic-pthread-stacks.patch
