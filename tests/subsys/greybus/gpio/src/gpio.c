@@ -24,6 +24,8 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#define IPPROTO_TLS_1_2 258
+
 /* For some reason, including <net/net_ip.h> breaks everything
  * I only need these */
 static inline struct sockaddr_in *net_sin(struct sockaddr *sa)
@@ -51,6 +53,7 @@ static inline struct sockaddr_in6 *net_sin6(struct sockaddr *sa)
 LOG_MODULE_REGISTER(greybus_test_gpio, CONFIG_GREYBUS_LOG_LEVEL);
 
 /* slightly annoying */
+#include "../../../../../subsys/greybus/platform/certificate.h"
 #include "../../../../../subsys/greybus/gpio-gb.h"
 
 #include "test-greybus-gpio.h"
@@ -71,8 +74,30 @@ LOG_MODULE_REGISTER(greybus_test_gpio, CONFIG_GREYBUS_LOG_LEVEL);
 #endif
 
 static struct device *gpio_dev;
-
 static int fd = -1;
+
+#ifdef CONFIG_GREYBUS_ENABLE_TLS
+#if defined(CONFIG_GREYBUS_TLS_CLIENT_VERIFY_OPTIONAL) \
+	|| defined(CONFIG_GREYBUS_TLS_CLIENT_VERIFY_REQUIRED)
+#define greybus_ca NULL
+static const unsigned char greybus_client[] = {
+#include "greybus_client.inc"
+};
+static const unsigned char greybus_client_privkey[] = {
+#include "greybus_client_privkey.inc"
+};
+#else /* GREYBUS_CLIENT_VERIFY_.. */
+static const unsigned char greybus_ca[] = {
+#include "greybus_ca.inc"
+};
+#define greybus_client NULL
+#define greybus_client_privkey NULL
+#endif /* GREYBUS_CLIENT_VERIFY_.. */
+#else /* CONFIG_GREYBUS_ENABLE_TLS */
+#define greybus_ca NULL
+#define greybus_client NULL
+#define greybus_client_privkey NULL
+#endif /* CONFIG_GREYBUS_ENABLE_TLS */
 
 void test_greybus_setup(void) {
 
@@ -80,18 +105,29 @@ void test_greybus_setup(void) {
     socklen_t sa_len;
     int family;
     uint16_t *port;
+	int proto = IPPROTO_TCP;
     int r;
+
+	if (IS_ENABLED(CONFIG_GREYBUS_ENABLE_TLS)) {
+		proto = IPPROTO_TLS_1_2;
+	}
 
 	if (IS_ENABLED(CONFIG_NET_IPV6)) {
 		family = AF_INET6;
 		net_sin6(&sa)->sin6_family = AF_INET6;
-		inet_pton(family, MY_IPV6_ADDR, &net_sin6(&sa)->sin6_addr);
+		r = inet_pton(family, MY_IPV6_ADDR,
+			&net_sin6(&sa)->sin6_addr);
+		__ASSERT(r == 1, "%s is not a valid IPv6 address",
+			MY_IPV6_ADDR);
 		port = &net_sin6(&sa)->sin6_port;
 		sa_len = sizeof(struct sockaddr_in6);
 	} else if (IS_ENABLED(CONFIG_NET_IPV4)) {
 		family = AF_INET;
 		net_sin(&sa)->sin_family = AF_INET;
-		inet_pton(family, MY_IPV4_ADDR, &net_sin(&sa)->sin_addr);
+		r = inet_pton(family, MY_IPV4_ADDR,
+			&net_sin(&sa)->sin_addr);
+		__ASSERT(r == 1, "%s is not a valid IPv4 address",
+			MY_IPV4_ADDR);
 		port = &net_sin(&sa)->sin_port;
 		sa_len = sizeof(struct sockaddr_in);
 	} else {
@@ -103,12 +139,47 @@ void test_greybus_setup(void) {
 	gpio_dev = (struct device *)device_get_binding(GPIO_DEV_NAME);
 	zassert_not_equal(gpio_dev, NULL, "failed to get device binding for " GPIO_DEV_NAME);
 
-    r = socket(family, SOCK_STREAM, 0);
-    __ASSERT(r >= 0, "connect: %d", errno);
-    fd = r;
+	r = socket(family, SOCK_STREAM, proto);
+	__ASSERT(r >= 0, "socket: %d", errno);
+	fd = r;
 
-    r = connect(fd, &sa, sa_len);
-    __ASSERT(r == 0, "connect: %d", errno);
+	if (IS_ENABLED(CONFIG_GREYBUS_ENABLE_TLS)) {
+
+		if(IS_ENABLED(CONFIG_GREYBUS_TLS_CLIENT_VERIFY_OPTIONAL)
+			|| IS_ENABLED(CONFIG_GREYBUS_TLS_CLIENT_VERIFY_REQUIRED)) {
+			LOG_DBG("Adding Client Certificate (Public Key) (%zu bytes)", sizeof(greybus_client));
+			r = tls_credential_add(GB_TLS_CLIENT_CERT_TAG, TLS_CREDENTIAL_SERVER_CERTIFICATE,
+					greybus_client, sizeof(greybus_client));
+			__ASSERT(r == 0, "tls_credential_add: %d", r);
+			LOG_DBG("Adding Client Certificate (Private Key) (%zu bytes)", sizeof(greybus_client_privkey));
+			r = tls_credential_add(GB_TLS_CLIENT_CERT_TAG, TLS_CREDENTIAL_PRIVATE_KEY,
+					greybus_client_privkey, sizeof(greybus_client_privkey));
+			__ASSERT(r == 0, "tls_credential_add: %d", r);
+		} else {
+			LOG_DBG("Adding CA Certificate (%zu bytes)", sizeof(greybus_client));
+			r = tls_credential_add(GB_TLS_CA_CERT_TAG, TLS_CREDENTIAL_CA_CERTIFICATE,
+					greybus_ca, sizeof(greybus_ca));
+			__ASSERT(r == 0, "tls_credential_add: %d", r);
+		}
+
+		static const sec_tag_t sec_tag_opt[] = {
+			GB_TLS_CA_CERT_TAG,
+#if defined(CONFIG_GREYBUS_TLS_CLIENT_VERIFY_OPTIONAL) \
+	|| defined(CONFIG_GREYBUS_TLS_CLIENT_VERIFY_REQUIRED)
+			GB_TLS_CLIENT_CERT_TAG,
+#endif
+		};
+
+		r = setsockopt(fd, SOL_TLS, TLS_SEC_TAG_LIST, sec_tag_opt, sizeof(sec_tag_opt));
+		__ASSERT(r != -1, "setsockopt: Failed to set SEC_TAG_LIST (%d)", errno);
+
+		r = setsockopt(fd, SOL_TLS, TLS_HOSTNAME, "localhost",
+			strlen("localhost"));
+		__ASSERT(r != -1, "setsockopt: Failed to set TLS_HOSTNAME (%d)", errno);
+	}
+
+	r = connect(fd, &sa, sa_len);
+	__ASSERT(r == 0, "connect: %d", errno);
 }
 
 void test_greybus_teardown(void) {
@@ -129,7 +200,7 @@ static void tx_rx(const struct gb_operation_hdr *req, struct gb_operation_hdr *r
 
     size = sys_le16_to_cpu(req->size);
     r = send(fd, req, size, 0);
-    zassert_not_equal(r, -1, "send: %s", errno);
+    zassert_not_equal(r, -1, "send: %d", errno);
     zassert_equal(r, size, "write: expected: %d actual: %d", size, r);
 
     for(;;) {
@@ -137,20 +208,17 @@ static void tx_rx(const struct gb_operation_hdr *req, struct gb_operation_hdr *r
 		pollfd.fd = fd;
 		pollfd.events = POLLIN;
 
-		LOG_DBG("calling poll on 1 file");
 		r = poll(&pollfd, 1, TIMEOUT_MS);
-		LOG_DBG("poll returned %d", r);
 		if (r == 0) {
-			LOG_DBG("poll returned 0 (timeout?)");
+			// there was a timeout... wait, really??
 			continue;
 		}
+
 		zassert_not_equal(r, -1, "poll: %s", errno);
 		//zassert_not_equal(r, 0, "timeout waiting for response");
 		zassert_equal(r, 1, "invalid number of pollfds with data: %d", r);
 
-		LOG_DBG("calling recv on fd %d", fd);
 		r = recv(fd, rsp, hdr_size, 0);
-		LOG_DBG("recv returned %d", r);
 		zassert_not_equal(r, -1, "recv: %s", errno);
 		zassert_equal(hdr_size, r, "recv: expected: %u actual: %u", (unsigned)hdr_size, r);
 

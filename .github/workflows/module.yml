@@ -44,18 +44,16 @@ jobs:
         # ERROR - qemu_cortex_m3 subsys.greybus.gpio FAILED: Exited with 2
         ${WS}/tools/net-tools/loop-socat.sh &
 
-    # Disabled to du alignment issues on x86_64
-    #- name: GPIO
-    #  timeout-minutes: 5
-    #  run: |
-    #    cd ${ZEPHYR_BASE}
-    #    west build -b native_posix_64 -p always ${GB}/tests/subsys/greybus/gpio
-    #    ./build/zephyr/zephyr.exe
-
-    - name: GPIO (qemu)
+    - name: GPIO
       run: |
         cd ${ZEPHYR_BASE}
         twister -i -p qemu_cortex_m3 -T ${GB}/tests/subsys/greybus/gpio
+
+    - name: GPIO (TLS)
+      timeout-minutes: 5
+      run: |
+        cd ${ZEPHYR_BASE}
+        twister -i -p mps2_an385 -T ${GB}/tests/subsys/greybus/gpio
 
     - name: native_posix_64 [tcp] [gpio]
       run: |

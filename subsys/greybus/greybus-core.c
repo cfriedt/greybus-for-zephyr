@@ -53,9 +53,15 @@ extern int pthread_setname_np(pthread_t thread, const char *name);
 #define DEFAULT_STACK_SIZE PTHREAD_STACK_MIN
 
 #else
+
 #include <posix/pthread.h>
 #include <posix/semaphore.h>
+
 #define DEFAULT_STACK_SIZE      CONFIG_PTHREAD_DYNAMIC_STACK_DEFAULT_SIZE
+
+void qsort(void *base, size_t nmemb, size_t size,
+                  int (*compar)(const void *, const void *));
+
 #endif
 
 #include <stdio.h>
@@ -553,6 +559,7 @@ int _gb_register_driver(unsigned int cport, int bundle_id,
     pthread_attr_t thread_attr;
     pthread_attr_t *thread_attr_ptr = &thread_attr;
     struct gb_bundle *bundle;
+	char thread_name[CONFIG_THREAD_MAX_NAME_LEN];
     int retval;
 
     LOG_DBG("Registering Greybus driver on CP%u", cport);
@@ -643,9 +650,8 @@ int _gb_register_driver(unsigned int cport, int bundle_id,
         goto pthread_create_error;
     }
 
-	char thread_name[CONFIG_THREAD_MAX_NAME_LEN];
-	(void)snprintf(thread_name, sizeof(thread_name), "greybus[%u]", cport);
-	(void)pthread_setname_np(g_cport[cport].thread, thread_name);
+	snprintf(thread_name, sizeof(thread_name), "greybus[%u]", cport);
+	pthread_setname_np(g_cport[cport].thread, thread_name);
 
     pthread_attr_destroy(&thread_attr);
     thread_attr_ptr = NULL;
