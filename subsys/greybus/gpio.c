@@ -66,10 +66,13 @@ static uint8_t gb_gpio_line_count(struct gb_operation *operation)
 {
 	struct gb_gpio_line_count_response *response;
 	const struct device *dev;
+	struct gb_bundle *bundle = gb_operation_get_bundle(operation);
+	__ASSERT_NO_MSG(bundle != NULL);
+	unsigned int cport_idx = operation->cport - bundle->cport_start;
 	const struct gpio_driver_config *cfg;
 	uint8_t count;
 
-	dev = gb_cport_to_device(operation->cport);
+	dev = bundle->dev[cport_idx];
 	if (dev == NULL) {
 		return GB_OP_INVALID;
 	}
@@ -94,10 +97,13 @@ static uint8_t gb_gpio_activate(struct gb_operation *operation)
 {
 	const struct device *dev;
 	const struct gpio_driver_config *cfg;
+	struct gb_bundle *bundle = gb_operation_get_bundle(operation);
+	__ASSERT_NO_MSG(bundle != NULL);
+	unsigned int cport_idx = operation->cport - bundle->cport_start;
 	struct gb_gpio_activate_request *request =
 		gb_operation_get_request_payload(operation);
 
-	dev = gb_cport_to_device(operation->cport);
+	dev = bundle->dev[cport_idx];
 	if (dev == NULL) {
 		return GB_OP_INVALID;
 	}
@@ -122,10 +128,13 @@ static uint8_t gb_gpio_deactivate(struct gb_operation *operation)
 {
 	const struct device *dev;
 	const struct gpio_driver_config *cfg;
+	struct gb_bundle *bundle = gb_operation_get_bundle(operation);
+	__ASSERT_NO_MSG(bundle != NULL);
+	unsigned int cport_idx = operation->cport - bundle->cport_start;
 	struct gb_gpio_activate_request *request =
 		gb_operation_get_request_payload(operation);
 
-	dev = gb_cport_to_device(operation->cport);
+	dev = bundle->dev[cport_idx];
 	if (dev == NULL) {
 		return GB_OP_INVALID;
 	}
@@ -150,11 +159,14 @@ static uint8_t gb_gpio_get_direction(struct gb_operation *operation)
 {
 	const struct device *dev;
 	const struct gpio_driver_config *cfg;
+	struct gb_bundle *bundle = gb_operation_get_bundle(operation);
+	__ASSERT_NO_MSG(bundle != NULL);
+	unsigned int cport_idx = operation->cport - bundle->cport_start;
 	struct gb_gpio_get_direction_response *response;
 	struct gb_gpio_get_direction_request *request =
 		gb_operation_get_request_payload(operation);
 
-	dev = gb_cport_to_device(operation->cport);
+	dev = bundle->dev[cport_idx];
 	if (dev == NULL) {
 		return GB_OP_INVALID;
 	}
@@ -184,10 +196,13 @@ static uint8_t gb_gpio_direction_in(struct gb_operation *operation)
 {
 	const struct device *dev;
 	const struct gpio_driver_config *cfg;
+	struct gb_bundle *bundle = gb_operation_get_bundle(operation);
+	__ASSERT_NO_MSG(bundle != NULL);
+	unsigned int cport_idx = operation->cport - bundle->cport_start;
 	struct gb_gpio_direction_in_request *request =
 		gb_operation_get_request_payload(operation);
 
-	dev = gb_cport_to_device(operation->cport);
+	dev = bundle->dev[cport_idx];
 	if (dev == NULL) {
 		return GB_OP_INVALID;
 	}
@@ -211,10 +226,13 @@ static uint8_t gb_gpio_direction_out(struct gb_operation *operation)
 	int ret;
 	const struct device *dev;
 	const struct gpio_driver_config *cfg;
+	struct gb_bundle *bundle = gb_operation_get_bundle(operation);
+	__ASSERT_NO_MSG(bundle != NULL);
+	unsigned int cport_idx = operation->cport - bundle->cport_start;
 	struct gb_gpio_direction_out_request *request =
 		gb_operation_get_request_payload(operation);
 
-	dev = gb_cport_to_device(operation->cport);
+	dev = bundle->dev[cport_idx];
 	if (dev == NULL) {
 		return GB_OP_INVALID;
 	}
@@ -247,11 +265,14 @@ static uint8_t gb_gpio_get_value(struct gb_operation *operation)
 {
 	const struct device *dev;
 	const struct gpio_driver_config *cfg;
+	struct gb_bundle *bundle = gb_operation_get_bundle(operation);
+	__ASSERT_NO_MSG(bundle != NULL);
+	unsigned int cport_idx = operation->cport - bundle->cport_start;
 	struct gb_gpio_get_value_response *response;
 	struct gb_gpio_get_value_request *request =
 		gb_operation_get_request_payload(operation);
 
-	dev = gb_cport_to_device(operation->cport);
+	dev = bundle->dev[cport_idx];
 	if (dev == NULL) {
 		return GB_OP_INVALID;
 	}
@@ -279,10 +300,13 @@ static uint8_t gb_gpio_set_value(struct gb_operation *operation)
 {
 	const struct device *dev;
 	const struct gpio_driver_config *cfg;
+	struct gb_bundle *bundle = gb_operation_get_bundle(operation);
+	__ASSERT_NO_MSG(bundle != NULL);
+	unsigned int cport_idx = operation->cport - bundle->cport_start;
 	struct gb_gpio_set_value_request *request =
 		gb_operation_get_request_payload(operation);
 
-	dev = gb_cport_to_device(operation->cport);
+	dev = bundle->dev[cport_idx];
 	if (dev == NULL) {
 		return GB_OP_INVALID;
 	}
@@ -305,10 +329,13 @@ static uint8_t gb_gpio_set_debounce(struct gb_operation *operation)
 {
 	const struct device *dev;
 	const struct gpio_driver_config *cfg;
+	struct gb_bundle *bundle = gb_operation_get_bundle(operation);
+	__ASSERT_NO_MSG(bundle != NULL);
+	unsigned int cport_idx = operation->cport - bundle->cport_start;
 	struct gb_gpio_set_debounce_request *request =
 		gb_operation_get_request_payload(operation);
 
-	dev = gb_cport_to_device(operation->cport);
+	dev = bundle->dev[cport_idx];
 	if (dev == NULL) {
 		return GB_OP_INVALID;
 	}
@@ -335,10 +362,13 @@ static uint8_t gb_gpio_irq_mask(struct gb_operation *operation)
 {
 	const struct device *dev;
 	const struct gpio_driver_config *cfg;
+	struct gb_bundle *bundle = gb_operation_get_bundle(operation);
+	__ASSERT_NO_MSG(bundle != NULL);
+	unsigned int cport_idx = operation->cport - bundle->cport_start;
 	struct gb_gpio_irq_mask_request *request =
 		gb_operation_get_request_payload(operation);
 
-	dev = gb_cport_to_device(operation->cport);
+	dev = bundle->dev[cport_idx];
 	if (dev == NULL) {
 		return GB_OP_INVALID;
 	}
@@ -361,10 +391,13 @@ static uint8_t gb_gpio_irq_unmask(struct gb_operation *operation)
 {
 	const struct device *dev;
 	const struct gpio_driver_config *cfg;
+	struct gb_bundle *bundle = gb_operation_get_bundle(operation);
+	__ASSERT_NO_MSG(bundle != NULL);
+	unsigned int cport_idx = operation->cport - bundle->cport_start;
 	struct gb_gpio_irq_unmask_request *request =
 		gb_operation_get_request_payload(operation);
 
-	dev = gb_cport_to_device(operation->cport);
+	dev = bundle->dev[cport_idx];
 	if (dev == NULL) {
 		return GB_OP_INVALID;
 	}
@@ -417,12 +450,15 @@ static uint8_t gb_gpio_irq_type(struct gb_operation *operation)
 {
 	const struct device *dev;
 	const struct gpio_driver_config *cfg;
+	struct gb_bundle *bundle = gb_operation_get_bundle(operation);
+	__ASSERT_NO_MSG(bundle != NULL);
+	unsigned int cport_idx = operation->cport - bundle->cport_start;
 	struct gb_gpio_irq_type_request *request =
 		gb_operation_get_request_payload(operation);
 	enum gpio_int_mode mode;
 	enum gpio_int_trig trigger;
 
-	dev = gb_cport_to_device(operation->cport);
+	dev = bundle->dev[cport_idx];
 	if (dev == NULL) {
 		return GB_OP_INVALID;
 	}
@@ -486,7 +522,25 @@ static struct gb_operation_handler gb_gpio_handlers[] = {
 	GB_HANDLER(GB_GPIO_TYPE_IRQ_UNMASK, gb_gpio_irq_unmask),
 };
 
+static int gb_gpio_init(unsigned int cport, struct gb_bundle *bundle)
+{
+	unsigned int cport_idx = cport - bundle->cport_start;
+
+	bundle->dev[cport_idx] = (struct device *)gb_cport_to_device(cport);
+	if (!bundle->dev[cport_idx])
+		return -EIO;
+	return 0;
+}
+
+static void gb_gpio_exit(unsigned int cport, struct gb_bundle *bundle)
+{
+	ARG_UNUSED(cport);
+	ARG_UNUSED(bundle);
+}
+
 struct gb_driver gpio_driver = {
+	.init = gb_gpio_init,
+	.exit = gb_gpio_exit,
 	.op_handlers = (struct gb_operation_handler*) gb_gpio_handlers,
 	.op_handlers_count = ARRAY_SIZE(gb_gpio_handlers),
 };
