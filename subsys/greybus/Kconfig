@@ -1,7 +1,6 @@
-# Kconfig - Greybus configuration options
+# Greybus configuration options
 #
-# Copyright (c) 2019 Christopher Friedt, <chrisfriedt@gmail.com>
-#
+# Copyright (c) 2019 Friedt Professional Engineering Services, Inc
 # SPDX-License-Identifier: BSD-3-Clause
 
 menuconfig GREYBUS
@@ -258,6 +257,6 @@ config GREYBUS_CPORT_INIT_PRIORITY
 
 module = GREYBUS
 module-str = Greybus
-source "subsys/logging/Kconfig.template.log_config"
+source "${ZEPHYR_BASE}/subsys/logging/Kconfig.template.log_config"
 
 endif # GREYBUS
