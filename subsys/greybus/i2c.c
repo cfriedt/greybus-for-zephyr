@@ -83,6 +83,7 @@ static uint8_t gb_i2c_protocol_transfer(struct gb_operation *operation)
     struct gb_bundle *bundle = gb_operation_get_bundle(operation);
     __ASSERT_NO_MSG(bundle != NULL);
 
+    unsigned int cport_idx = operation->cport - bundle->cport_start;
     struct i2c_msg *requests;
 
     struct gb_i2c_transfer_desc *desc;
@@ -148,7 +149,7 @@ static uint8_t gb_i2c_protocol_transfer(struct gb_operation *operation)
         }
     }
 
-    ret = i2c_transfer(bundle->dev, requests, op_count, addr);
+    ret = i2c_transfer(bundle->dev[cport_idx], requests, op_count, addr);
 
 free_requests:
     free(requests);
@@ -158,10 +159,11 @@ free_requests:
 
 static int gb_i2c_init(unsigned int cport, struct gb_bundle *bundle)
 {
+	unsigned int cport_idx = cport - bundle->cport_start;
 	__ASSERT_NO_MSG(bundle != NULL);
 
-    bundle->dev = (struct device *)gb_cport_to_device(cport);
-    if (!bundle->dev) {
+    bundle->dev[cport_idx] = (struct device *)gb_cport_to_device(cport);
+    if (!bundle->dev[cport_idx]) {
         return -EIO;
     }
 

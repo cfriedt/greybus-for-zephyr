@@ -121,16 +121,7 @@
 			id = <1>;
 			cport-protocol = <CPORT_PROTOCOL_GPIO>;
 		};
-	};
-	
-	gbbundle2 {
-		label = "GBBUNDLE_2";
-		status = "okay";
-		compatible = "zephyr,greybus-bundle";
-		greybus-bundle;
-		id = <2>;
-		bundle-class = <BUNDLE_CLASS_BRIDGED_PHY>;		
-				
+
 		gbi2c0 {
 			label = "GBI2C_0";
 			status = "okay";
@@ -140,16 +131,7 @@
 			id = <2>;
 			cport-protocol = <CPORT_PROTOCOL_I2C>;
 		};
-	};
-	
-	gbbundle3 {
-		label = "GBBUNDLE_3";
-		status = "okay";
-		compatible = "zephyr,greybus-bundle";
-		greybus-bundle;
-		id = <3>;
-		bundle-class = <BUNDLE_CLASS_BRIDGED_PHY>;		
-				
+
 		gbspi0 {
 			label = "GBSPI_0";
 			status = "okay";

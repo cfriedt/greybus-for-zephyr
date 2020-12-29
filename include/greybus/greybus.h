@@ -107,7 +107,8 @@ struct gb_transport_backend {
 
 struct gb_bundle {
     int id;                     /* bundle ID */
-    struct device *dev;         /* primary bundle device */
+    unsigned int cport_start;   /* start cport */
+    struct device **dev;        /* primary bundle device */
     void *priv;                 /* private bundle data */
 };
 

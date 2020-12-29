@@ -33,6 +33,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <errno.h>
+#include <limits.h>
 
 #include <list.h>
 #include <sys/byteorder.h>
@@ -483,6 +484,36 @@ size_t manifest_get_num_cports(void)
 	}
 
 	return r;
+}
+
+size_t manifest_get_num_cports_bundle(int bundle_id)
+{
+	struct gb_cport *gb_cport;
+	struct list_head *iter;
+	size_t r = 0;
+
+	list_foreach(&g_greybus.cports, iter) {
+        gb_cport = list_entry(iter, struct gb_cport, list);
+		if(gb_cport->bundle == bundle_id)
+            		r++;
+	}
+
+	return r;
+}
+
+unsigned int manifest_get_start_cport_bundle(int bundle_id)
+{
+	struct gb_cport *gb_cport;
+	struct list_head *iter;
+	unsigned int cport_id = UINT_MAX;
+
+	list_foreach(&g_greybus.cports, iter) {
+        gb_cport = list_entry(iter, struct gb_cport, list);
+		if(gb_cport->bundle == bundle_id && gb_cport->id < cport_id)
+            cport_id = gb_cport->id;
+	}
+
+	return cport_id;
 }
 
 int get_manifest_size(void)

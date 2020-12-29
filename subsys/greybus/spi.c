@@ -291,6 +291,7 @@ static uint8_t gb_spi_protocol_transfer(struct gb_operation *operation)
 
     struct gb_bundle *bundle = gb_operation_get_bundle(operation);
     __ASSERT_NO_MSG(bundle != NULL);
+    unsigned int cport_idx = operation->cport - bundle->cport_start;
 
     request_size = gb_operation_get_request_payload_size(operation);
     if (request_size < sizeof(*request)) {
@@ -408,14 +409,14 @@ static uint8_t gb_spi_protocol_transfer(struct gb_operation *operation)
 
     /* set SPI configuration */
     ret = request_to_spi_config(request, sys_le32_to_cpu(request->transfers[0].speed_hz),
-		bits_per_word, bundle->dev, &spi_config, &spi_cs_control);
+		bits_per_word, bundle->dev[cport_idx], &spi_config, &spi_cs_control);
     if (ret) {
 		errcode = gb_errno_to_op_result(-ret);
 		goto freebufs;
     }
 
     /* start SPI transfer */
-    ret = spi_transceive(bundle->dev, &spi_config, tx_buf_set, rx_buf_set);
+    ret = spi_transceive(bundle->dev[cport_idx], &spi_config, tx_buf_set, rx_buf_set);
     if (ret) {
 		errcode = gb_errno_to_op_result(-ret);
 		goto freebufs;
@@ -439,8 +440,10 @@ out:
  */
 static int gb_spi_init(unsigned int cport, struct gb_bundle *bundle)
 {
-    bundle->dev = (struct device *)gb_cport_to_device(cport);
-    if (!bundle->dev) {
+    unsigned int cport_idx = cport - bundle->cport_start;
+
+    bundle->dev[cport_idx] = (struct device *)gb_cport_to_device(cport);
+    if (!bundle->dev[cport_idx]) {
         return -EIO;
     }
     return 0;

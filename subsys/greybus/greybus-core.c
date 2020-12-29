@@ -561,6 +561,7 @@ int _gb_register_driver(unsigned int cport, int bundle_id,
     struct gb_bundle *bundle;
 	char thread_name[CONFIG_THREAD_MAX_NAME_LEN];
     int retval;
+	size_t num_cports =  manifest_get_num_cports_bundle(bundle_id);
 
     LOG_DBG("Registering Greybus driver on CP%u", cport);
 
@@ -606,9 +607,11 @@ int _gb_register_driver(unsigned int cport, int bundle_id,
             return -ENOMEM;
 
         bundle->id = bundle_id;
+        bundle->cport_start = manifest_get_start_cport_bundle(bundle_id);
+        bundle->dev = calloc(1, num_cports * sizeof(struct device *));
         g_bundle[bundle_id] = bundle;
     } else {
-        bundle = NULL;
+        bundle = g_bundle[bundle_id]; 
     }
 
     driver->bundle = bundle;

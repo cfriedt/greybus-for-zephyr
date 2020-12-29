@@ -248,7 +248,7 @@ static uint8_t __attribute__((unused)) gb_control_bundle_pwr_set(struct gb_opera
     struct gb_control_bundle_pwr_set_response *response;
     //struct device_pm_ops *pm_ops;
     struct gb_bundle *bundle;
-    struct device *dev;
+    //struct device *dev;
     int status = 0;
 
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
@@ -267,7 +267,7 @@ static uint8_t __attribute__((unused)) gb_control_bundle_pwr_set(struct gb_opera
         return GB_OP_INVALID;
     }
 
-    dev = bundle->dev;
+//    dev = bundle->dev;
 //    pm_ops = dev->driver->pm;
 //    if (!pm_ops) {
 //        LOG_INF("pm operations not supported by %s driver", dev->name);
