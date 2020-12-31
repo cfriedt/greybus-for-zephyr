@@ -78,6 +78,7 @@ static void uart_work_fn(struct k_work *work)
 	}
 
 	data = realloc(data, msg_size);
+	msg = (struct gb_operation_hdr *)data;
 	len = ring_buf_get(&uart_rb, data + sizeof(struct gb_operation_hdr), payload_size);
 	if (len != payload_size) {
 		LOG_ERR("gb_operation payload not received");
