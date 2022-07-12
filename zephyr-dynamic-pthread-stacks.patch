@@ -1,10 +1,10 @@
 diff --git a/include/kernel.h b/include/kernel.h
-index 381af7907241..c81918c2d3da 100644
+index df298eb345..f2a761aa80 100644
 --- a/include/kernel.h
 +++ b/include/kernel.h
-@@ -488,6 +488,14 @@ extern void k_thread_foreach_unlocked(
+@@ -210,6 +210,14 @@ extern void k_thread_foreach_unlocked(
   */
- #define K_INHERIT_PERMS (BIT(3))
+ #define K_CALLBACK_STATE (BIT(4))
  
 +/**
 + * @brief dynamically allocated stack
@@ -12,13 +12,13 @@ index 381af7907241..c81918c2d3da 100644
 + * This flag indicates that a thread stack has been heap-allocated with
 + * @ref k_malloc.
 + */
-+#define K_STACK_ON_HEAP (BIT(4))
++#define K_STACK_ON_HEAP (BIT(5))
 +
  #ifdef CONFIG_X86
  /* x86 Bitmask definitions for threads user options */
  
 diff --git a/include/posix/pthread.h b/include/posix/pthread.h
-index 12707894db0f..59771450067f 100644
+index 12707894db..5977145006 100644
 --- a/include/posix/pthread.h
 +++ b/include/posix/pthread.h
 @@ -477,6 +477,7 @@ static inline int pthread_rwlockattr_init(pthread_rwlockattr_t *attr)
@@ -30,7 +30,7 @@ index 12707894db0f..59771450067f 100644
  int pthread_attr_setschedpolicy(pthread_attr_t *attr, int policy);
  int pthread_attr_getschedpolicy(const pthread_attr_t *attr, int *policy);
 diff --git a/lib/posix/Kconfig b/lib/posix/Kconfig
-index b1a0d52995b1..35f31f92794f 100644
+index b1a0d52995..35f31f9279 100644
 --- a/lib/posix/Kconfig
 +++ b/lib/posix/Kconfig
 @@ -39,6 +39,30 @@ config SEM_VALUE_MAX
@@ -65,7 +65,7 @@ index b1a0d52995b1..35f31f92794f 100644
  
  config POSIX_CLOCK
 diff --git a/lib/posix/pthread.c b/lib/posix/pthread.c
-index e997d6653466..75baef2488d1 100644
+index 1493f2b9b6..c9e562a9a0 100644
 --- a/lib/posix/pthread.c
 +++ b/lib/posix/pthread.c
 @@ -6,12 +6,19 @@
@@ -225,7 +225,7 @@ index e997d6653466..75baef2488d1 100644
  /**
   * @brief Terminate calling thread.
   *
-@@ -385,6 +443,10 @@ void pthread_exit(void *retval)
+@@ -387,6 +445,10 @@ void pthread_exit(void *retval)
  		}
  	}
  
@@ -236,7 +236,7 @@ index e997d6653466..75baef2488d1 100644
  	pthread_mutex_unlock(&self->state_lock);
  	k_thread_abort((k_tid_t)self);
  }
-@@ -534,6 +596,21 @@ int pthread_attr_setschedpolicy(pthread_attr_t *attr, int policy)
+@@ -536,6 +598,21 @@ int pthread_attr_setschedpolicy(pthread_attr_t *attr, int policy)
  	return 0;
  }
  
@@ -259,7 +259,7 @@ index e997d6653466..75baef2488d1 100644
   * @brief Get stack size attribute in thread attributes object.
   *
 diff --git a/tests/posix/common/prj.conf b/tests/posix/common/prj.conf
-index f01ae5140a96..1f98f40157c7 100644
+index f01ae5140a..1f98f40157 100644
 --- a/tests/posix/common/prj.conf
 +++ b/tests/posix/common/prj.conf
 @@ -4,8 +4,13 @@ CONFIG_MAX_PTHREAD_COUNT=20
@@ -278,10 +278,10 @@ index f01ae5140a96..1f98f40157c7 100644
 +# increased since idle calls k_free() with dynamic stacks
 +CONFIG_IDLE_STACK_SIZE=768
 diff --git a/tests/posix/common/src/main.c b/tests/posix/common/src/main.c
-index 1637a19e891d..e370fbd673bf 100644
+index 1d9056bc68..91aaf92cf5 100644
 --- a/tests/posix/common/src/main.c
 +++ b/tests/posix/common/src/main.c
-@@ -19,6 +19,7 @@ extern void test_posix_pthread_execution(void);
+@@ -21,6 +21,7 @@ extern void test_posix_pthread_create_negative(void);
  extern void test_posix_pthread_termination(void);
  extern void test_posix_multiple_threads_single_key(void);
  extern void test_posix_single_thread_multiple_keys(void);
@@ -289,7 +289,7 @@ index 1637a19e891d..e370fbd673bf 100644
  extern void test_nanosleep_NULL_NULL(void);
  extern void test_nanosleep_NULL_notNULL(void);
  extern void test_nanosleep_notNULL_NULL(void);
-@@ -42,6 +43,7 @@ void test_main(void)
+@@ -45,6 +46,7 @@ void test_main(void)
  			ztest_unit_test(test_posix_pthread_termination),
  			ztest_unit_test(test_posix_multiple_threads_single_key),
  			ztest_unit_test(test_posix_single_thread_multiple_keys),
@@ -298,10 +298,10 @@ index 1637a19e891d..e370fbd673bf 100644
  			ztest_unit_test(test_posix_semaphore),
  			ztest_unit_test(test_posix_normal_mutex),
 diff --git a/tests/posix/common/src/pthread.c b/tests/posix/common/src/pthread.c
-index da46c3afb254..eae02fe4249f 100644
+index 04a5cff9c6..6e5a2cd1cc 100644
 --- a/tests/posix/common/src/pthread.c
 +++ b/tests/posix/common/src/pthread.c
-@@ -214,6 +214,9 @@ void *thread_top_term(void *p1)
+@@ -215,6 +215,9 @@ void *thread_top_term(void *p1)
  	}
  
  	if (id >= 2) {
@@ -311,7 +311,7 @@ index da46c3afb254..eae02fe4249f 100644
  		ret = pthread_detach(self);
  		if (id == 2) {
  			zassert_equal(ret, EINVAL, "re-detached thread!");
-@@ -301,18 +304,20 @@ void test_posix_pthread_execution(void)
+@@ -302,18 +305,20 @@ void test_posix_pthread_execution(void)
  	ret = pthread_setname_np(NULL, thr_name);
  	zassert_equal(ret, ESRCH, "uninitialized setname!");
  
@@ -338,7 +338,7 @@ index da46c3afb254..eae02fe4249f 100644
  		}
  
  		/* TESTPOINTS: Retrieve set stack attributes and compare */
-@@ -333,11 +338,16 @@ void test_posix_pthread_execution(void)
+@@ -334,11 +339,16 @@ void test_posix_pthread_execution(void)
  		pthread_attr_setschedparam(&attr[i], &schedparam);
  		pthread_attr_getschedparam(&attr[i], &getschedparam);
  		zassert_equal(schedparam.sched_priority,
@@ -359,7 +359,7 @@ index da46c3afb254..eae02fe4249f 100644
  
  		/* TESTPOINT: Check if thread is created successfully */
  		zassert_false(ret, "Number of threads exceed max limit");
-@@ -429,8 +439,13 @@ void test_posix_pthread_termination(void)
+@@ -495,8 +505,13 @@ void test_posix_pthread_termination(void)
  		schedparam.sched_priority = 2;
  		pthread_attr_setschedparam(&attr[i], &schedparam);
  		pthread_attr_setstack(&attr[i], &stack_t[i][0], STACKS);
@@ -375,9 +375,9 @@ index da46c3afb254..eae02fe4249f 100644
  
  		zassert_false(ret, "Not enough space to create new thread");
  	}
-@@ -464,3 +479,29 @@ void test_posix_pthread_termination(void)
- 	ret = pthread_getschedparam(newthread[N_THR_T/2], &policy, &schedparam);
- 	zassert_equal(ret, ESRCH, "got attr from terminated thread!");
+@@ -560,3 +575,29 @@ void test_posix_pthread_create_negative(void)
+ 	ret = pthread_create(&pthread1, &attr1, create_thread1, (void *)1);
+ 	zassert_equal(ret, EINVAL, "create thread with 0 size");
  }
 +
 +#ifdef CONFIG_PTHREAD_DYNAMIC_STACK
@@ -406,10 +406,10 @@ index da46c3afb254..eae02fe4249f 100644
 +}
 +#endif
 diff --git a/tests/posix/common/testcase.yaml b/tests/posix/common/testcase.yaml
-index 4f931437071f..024c42e993b3 100644
+index 8c62fb2c0b..0b0d197142 100644
 --- a/tests/posix/common/testcase.yaml
 +++ b/tests/posix/common/testcase.yaml
-@@ -36,3 +36,17 @@ tests:
+@@ -41,3 +41,17 @@ tests:
      extra_configs:
        - CONFIG_NEWLIB_LIBC=y
        - CONFIG_TEST_HW_STACK_PROTECTION=n
